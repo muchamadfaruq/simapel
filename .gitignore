@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+
+# Environment variables
+.env
+.env.*
+!backend/.env.example
+
+# Application Data & Database (Sensitive)
+backend/data/*.sqlite
+backend/data/*.sqlite-journal
+backend/data/*.sqlite-shm
+backend/data/*.sqlite-wal
+backend/database.sqlite
+db.sqlite
+
+# Uploaded Files & Temporary Docs
+backend/uploads/
+img/logo.png
+*.docx
+*.pdf
+*.xlsx
+template_persetujuan.*
+uploaded_db.sqlite
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# System Files
+.DS_Store
+Thumbs.db
