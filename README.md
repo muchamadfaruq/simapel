@@ -17,14 +17,26 @@ Aplikasi web berbasis Node.js untuk memfasilitasi pemilihan kelompok mata pelaja
 - Unduh **Surat Persetujuan Orang Tua** (DOCX, auto-fill)
 
 ### 🛡️ Dashboard Admin / Guru BK
-- Monitoring real-time siswa yang sudah/belum memilih
-- Import/Export data siswa via Excel
-- Manajemen paket mata pelajaran (kuota, kategori, deskripsi)
-- Buka/tutup sistem penerimaan pilihan
-- Backup & restore database (`.sqlite`)
-- **Pengaturan Aplikasi:** ubah nama sekolah, singkatan, tahun ajaran, logo, dan tema warna
+- **Visual Monitoring:** Grafik real-time status pemilihan dan popularitas paket (Chart.js) pada tab Dashboard Utama.
+- **Kontrol Sistem (di tab Paket Mapel):**
+  - **Papan Pengumuman:** Sampaikan informasi penting langsung ke dashboard siswa.
+  - **Tutup Otomatis:** Setel deadline (batas waktu) agar sistem terkunci otomatis.
+  - **Toggle Pendaftaran:** Buka/tutup akses form pemilihan siswa secara manual.
+- **Eksport Laporan:** Download rekap akhir seluruh pilihan siswa dalam format Excel (.xlsx) di tab Monitoring.
+- **Reset Pilihan:** Fitur khusus admin untuk me-reset pilihan siswa agar bisa memilih ulang.
+- **Manajemen Data:** Monitoring real-time, import/export data siswa, dan manajemen paket mapel.
+- **Keamanan & Backup:** Backup & restore database (`.sqlite`) serta pengaturan identitas aplikasi.
 
 ---
+
+## 🔒 Keamanan & Hardening
+- **Directory Protection:** Mencegah akses langsung ke folder `/backend/` via URL
+- **Rate Limiting:** Proteksi brute-force pada login (10 req/15 mnt) dan spam API pemilihan (3 req/5 mnt)
+- **Parameterized Queries:** Mencegah celah SQL Injection di seluruh endpoint API
+- **Session Security:** Autentikasi menggunakan JWT (JSON Web Token) yang aman
+- **File Upload Security:** Nama file upload di-hardcode (logo.png, database.sqlite) untuk mencegah LFI/RCE
+- File `.env`, database (`.sqlite`), dan folder `uploads/` tidak ter-commit ke Git (lihat `.gitignore`)
+- JWT Secret **wajib diganti** sebelum deploy ke production
 
 ## 🛠️ Teknologi
 

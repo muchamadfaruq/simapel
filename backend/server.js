@@ -4,11 +4,31 @@ const cors = require('cors');
 const helmet = require('helmet');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const rateLimit = require('express-rate-limit');
 const db = require('./db');
 const { getDbInstance } = require('./db');
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
+
+// --- Konfigurasi Rate Limiter (Anti DoS & Brute Force) ---
+// 1. Limiter Khusus Login (Max 10x per 15 menit)
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    message: { success: false, message: 'Terlalu banyak percobaan login, silakan coba lagi setelah 15 menit.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+// 2. Limiter Khusus Submit Pilihan (Max 3x per 5 menit)
+const submitLimiter = rateLimit({
+    windowMs: 5 * 60 * 1000,
+    max: 3,
+    message: { success: false, message: 'Terlalu banyak request pemilihan. Mohon tunggu beberapa saat sebelum mencoba lagi.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
 
 // Migrasi ringan: tambah kolom nilaiMapel jika belum ada (error diabaikan via callback)
 getDbInstance().run('ALTER TABLE users ADD COLUMN nilaiMapel TEXT DEFAULT NULL', () => { });
@@ -92,6 +112,14 @@ const isAdmin = (req, res, next) => {
     }
 };
 
+// Security Middleware: Blokir akses langsung ke folder backend lewat URL (melindungi database.sqlite dan .env)
+app.use((req, res, next) => {
+    if (req.url.startsWith('/backend/')) {
+        return res.status(403).send('Akses ke direktori backend ditolak (Forbidden).');
+    }
+    next();
+});
+
 // Serve Static Frontend Files (from parent directory)
 const frontendDir = path.join(__dirname, '..');
 app.use(express.static(frontendDir));
@@ -101,17 +129,27 @@ app.post('/api/upload-template', authenticateToken, isAdmin, upload.single('temp
     if (!req.file) {
         return res.status(400).json({ success: false, message: 'Tidak ada file yang diunggah.' });
     }
-
-    // Hapus file template lama jika ada (berbeda ekstensi)
-    const files = fs.readdirSync(uploadDir);
-    files.forEach(f => {
-        if (f.startsWith('template_persetujuan') && f !== req.file.filename) {
-            fs.unlinkSync(path.join(uploadDir, f));
-        }
-    });
-
-    res.json({ success: true, message: 'Template berhasil diunggah' });
+    res.json({ success: true, message: 'Template berhasil diunggah.' });
 });
+
+// --- NEW DEDICATED API ROUTES WITH RATE LIMITING ---
+
+// 1. Admin Login
+app.post('/api/admin/login', loginLimiter, async (req, res) => {
+    return await handleLoginWithPassword(req.body, res);
+});
+
+// 2. Student Verification
+app.post('/api/siswa/verify', loginLimiter, async (req, res) => {
+    return await handleVerifyNISN(req.body, res);
+});
+
+// 3. Submit Choice
+app.post('/api/pilihan/submit', submitLimiter, authenticateToken, async (req, res) => {
+    return await handleSubmitPilihan(req.body, req, res);
+});
+
+// --- DEDICATED API HANDLER ABOVE ---
 
 app.get('/api/check-template', (req, res) => {
     const files = fs.existsSync(uploadDir) ? fs.readdirSync(uploadDir) : [];
@@ -165,12 +203,14 @@ app.post('/api/restore-db', authenticateToken, isAdmin, uploadDb.single('databas
 // API Get App Settings
 app.get('/api/settings', async (req, res) => {
     try {
-        const { rows } = await db.query("SELECT * FROM settings WHERE key IN ('schoolName', 'schoolShortName', 'academicYear', 'theme')");
+        const { rows } = await db.query("SELECT * FROM settings WHERE key IN ('schoolName', 'schoolShortName', 'academicYear', 'theme', 'announcement', 'deadline')");
         const settings = {
             schoolName: 'SMA Negeri 2 Mengwi',
             schoolShortName: 'DWISMA',
             academicYear: '2026-2027',
-            theme: 'blue'
+            theme: 'blue',
+            announcement: '',
+            deadline: ''
         };
 
         rows.forEach(row => {
@@ -195,13 +235,15 @@ app.post('/api/settings', authenticateToken, async (req, res) => {
     if (req.user.role !== 'Admin') return res.status(403).json({ success: false, message: 'Unauthorized' });
 
     try {
-        const { schoolName, shortName, academicYear, theme } = req.body;
+        const { schoolName, shortName, academicYear, theme, announcement, deadline } = req.body;
 
         const updates = [
             { key: 'schoolName', value: schoolName },
             { key: 'schoolShortName', value: shortName },
             { key: 'academicYear', value: academicYear },
-            { key: 'theme', value: theme }
+            { key: 'theme', value: theme },
+            { key: 'announcement', value: announcement },
+            { key: 'deadline', value: deadline }
         ];
 
         for (const { key, value } of updates) {
@@ -398,16 +440,8 @@ app.post('/api', async (req, res) => {
                 return await handleGetAllUsers(res);
             case 'getUserData':
                 return res.json(null);
-            case 'loginWithPassword':
-                return await handleLoginWithPassword(payload, res);
-            case 'verifyNISN':
-                return await handleVerifyNISN(payload, res);
             case 'getMapelOptions':
                 return await handleGetMapelOptions(res);
-            case 'submitPilihan':
-                return authenticateToken(req, res, async () => {
-                    return await handleSubmitPilihan(payload, req, res);
-                });
             case 'getRecentActivities':
                 return await handleGetRecentActivities(res);
             case 'getSystemStatus':
@@ -563,7 +597,16 @@ async function handleVerifyNISN(payload, res) {
     const sudahMemilih = pilihanResult.rows.length > 0;
 
     const statusResult = await db.query("SELECT value FROM settings WHERE key = 'isSystemOpen'");
-    const isSystemOpen = statusResult.rows.length > 0 ? (statusResult.rows[0].value === '1' || statusResult.rows[0].value === 'true' || statusResult.rows[0].value === 1) : true;
+    let isSystemOpen = statusResult.rows.length > 0 ? (statusResult.rows[0].value === '1' || statusResult.rows[0].value === 'true' || statusResult.rows[0].value === 1) : true;
+
+    // Check Auto-Close Deadline
+    const deadlineResult = await db.query("SELECT value FROM settings WHERE key = 'deadline'");
+    if (deadlineResult.rows.length > 0 && deadlineResult.rows[0].value) {
+        const deadlineDate = new Date(deadlineResult.rows[0].value);
+        if (!isNaN(deadlineDate) && Date.now() > deadlineDate.getTime()) {
+            isSystemOpen = false; // Override to closed if deadline passed
+        }
+    }
 
     let nilaiMapelObj = {};
     try { if (siswa.nilaimapel || siswa.nilaiMapel) nilaiMapelObj = JSON.parse(siswa.nilaimapel || siswa.nilaiMapel); } catch (e) { }
@@ -683,13 +726,46 @@ async function handleGetSystemStatus(res) {
     const tzResult = await db.query("SELECT value FROM settings WHERE key = 'timezone'");
     const timezone = tzResult.rows.length > 0 ? tzResult.rows[0].value : 'GMT+8';
 
-    res.json({ isOpen: isSystemOpen, timezone: timezone });
+    const annResult = await db.query("SELECT value FROM settings WHERE key = 'announcement'");
+    const announcement = annResult.rows.length > 0 ? annResult.rows[0].value : '';
+
+    const deadResult = await db.query("SELECT value FROM settings WHERE key = 'deadline'");
+    const deadline = deadResult.rows.length > 0 ? deadResult.rows[0].value : '';
+
+    res.json({
+        isOpen: isSystemOpen,
+        timezone: timezone,
+        announcement: announcement,
+        deadline: deadline
+    });
 }
 
-async function handleUpdateSystemStatus(newState, res) {
-    const val = newState ? 'true' : 'false';
-    await db.query("UPDATE settings SET value = ? WHERE key = 'isSystemOpen'", [val]);
-    res.json({ success: true });
+async function handleUpdateSystemStatus(payload, res) {
+    try {
+        if (typeof payload === 'object' && payload !== null) {
+            // Bulk update from object (used by saveAppSettings and saveQuickSettings)
+            const entries = Object.entries(payload);
+            for (const [key, value] of entries) {
+                let dbKey = key;
+                if (key === 'shortName') dbKey = 'schoolShortName';
+
+                // Only update known keys to safety
+                const validKeys = ['schoolName', 'schoolShortName', 'academicYear', 'theme', 'announcement', 'deadline', 'isSystemOpen'];
+                if (validKeys.includes(dbKey)) {
+                    await db.query("UPDATE settings SET value = ? WHERE key = ?", [String(value), dbKey]);
+                }
+            }
+            res.json({ success: true });
+        } else {
+            // Simple toggle for isSystemOpen (legacy or simple toggle)
+            const val = payload ? 'true' : 'false';
+            await db.query("UPDATE settings SET value = ? WHERE key = 'isSystemOpen'", [val]);
+            res.json({ success: true });
+        }
+    } catch (err) {
+        console.error("Update System Status Error:", err);
+        res.status(500).json({ success: false, message: err.message });
+    }
 }
 
 async function handleUpdateTimezone(newTz, res) {

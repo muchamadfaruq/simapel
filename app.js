@@ -230,18 +230,41 @@ async function callAPI(action, payload = null) {
     }
 
     try {
-        const response = await fetch(API_URL, {
+        let url = API_URL;
+        let body = { action: action, payload: payload };
+
+        // Helper to resolve dedicated routes relative to API_URL if it's an absolute URL
+        const resolveUrl = (path) => {
+            if (API_URL.startsWith('http')) {
+                const base = new URL(API_URL).origin;
+                return base + path;
+            }
+            return path;
+        };
+
+        // Dedicated routes for better stability and rate limiting
+        if (action === 'loginWithPassword') {
+            url = resolveUrl('/api/admin/login');
+            body = payload;
+        } else if (action === 'verifyNISN') {
+            url = resolveUrl('/api/siswa/verify');
+            body = payload;
+        } else if (action === 'submitPilihan') {
+            url = resolveUrl('/api/pilihan/submit');
+            body = payload;
+        }
+
+        const response = await fetch(url, {
             method: 'POST',
             headers: headers,
-            body: JSON.stringify({ action: action, payload: payload })
+            body: JSON.stringify(body)
         });
 
         if (response.status === 401 || response.status === 403) {
-            const err = await response.json();
+            const err = await response.json().catch(() => ({}));
             if (adminSession.token || siswaSession.token) {
                 localStorage.removeItem('adminSession');
                 localStorage.removeItem('siswaSession');
-                // Wait for user to acknowledge before reloading
                 await uiAlert(err && err.message ? err.message : "Sesi Anda telah berakhir. Silakan login kembali.", "error", "Sesi Berakhir");
                 location.reload();
             }
@@ -653,11 +676,36 @@ function renderClosedPage() {
  * Menampilkan form pemilihan paket mata pelajaran untuk siswa
  */
 /**
+ * Helper to render the announcement box if available
+ */
+function renderAnnouncement() {
+    if (!appSettings || !appSettings.announcement || appSettings.announcement.trim() === "") return "";
+    return `
+        <div class="mb-8 p-5 bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-600 rounded-2xl shadow-sm flex items-start gap-4 fade-in">
+            <div class="w-10 h-10 bg-blue-600/10 rounded-xl flex items-center justify-center text-blue-600 shrink-0">
+                <i class="fa-solid fa-bullhorn text-lg"></i>
+            </div>
+            <div class="flex-1">
+                <p class="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-1.5 flex items-center gap-2">
+                    <span class="relative flex h-2 w-2">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-blue-600"></span>
+                    </span>
+                    Pengumuman Sekolah
+                </p>
+                <div class="text-sm text-slate-700 font-medium leading-relaxed">${appSettings.announcement.replace(/\n/g, '<br>')}</div>
+            </div>
+        </div>
+    `;
+}
+
+/**
  * Menampilkan form pemilihan paket mata pelajaran untuk siswa
  */
 function renderSiswaForm() {
     const container = document.getElementById('mainContent');
     container.innerHTML = `
+      ${renderAnnouncement()}
       <div class="flex flex-col items-center justify-center py-20 space-y-4">
         <i class="fa-solid fa-cloud-arrow-down text-4xl text-blue-200 animate-bounce"></i>
         <p class="text-slate-400 font-semibold text-xs tracking-widest uppercase">Mengambil Data Kuota...</p>
@@ -1076,8 +1124,10 @@ function renderHasilPilihan(data) {
         : '';
 
     document.getElementById('mainContent').innerHTML = `
-      <div class="text-center py-10 fade-in max-w-lg mx-auto space-y-5">
-        <div class="p-8 bg-white rounded-3xl border border-slate-100 shadow-xl relative overflow-hidden">
+      <div class="max-w-lg mx-auto py-10">
+        ${renderAnnouncement()}
+        <div class="text-center fade-in space-y-5">
+          <div class="p-8 bg-white rounded-3xl border border-slate-100 shadow-xl relative overflow-hidden">
           <div class="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-sm">
             <i class="fa-solid fa-check text-2xl"></i>
           </div>
@@ -1507,7 +1557,8 @@ function managePengaturan() {
                                 <option value="black">⚫ Hitam (Gelap)</option>
                             </select>
                         </div>
-                        <button onclick="saveAppSettings()" id="btnSaveSettings" class="btn-official w-full px-4 py-3 rounded-xl font-bold text-sm uppercase tracking-widest shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2">
+                        
+                        <button onclick="saveAppSettings()" id="btnSaveSettings" class="btn-official w-full px-4 py-3 rounded-xl font-bold text-sm uppercase tracking-widest shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 mt-4">
                             <i class="fa-solid fa-save"></i> Simpan Pengaturan
                         </button>
                     </div>
@@ -1540,6 +1591,17 @@ function managePengaturan() {
             document.getElementById('settingShortName').value = settings.shortName || '';
             document.getElementById('settingAcademicYear').value = settings.academicYear || '';
             document.getElementById('settingThemeColor').value = settings.theme || 'blue';
+            document.getElementById('settingAnnouncement').value = settings.announcement || '';
+            if (settings.deadline) {
+                // Formatting for datetime-local (YYYY-MM-DDTHH:mm)
+                try {
+                    const d = new Date(settings.deadline);
+                    const formatted = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                    document.getElementById('settingDeadline').value = formatted;
+                } catch (e) {
+                    document.getElementById('settingDeadline').value = '';
+                }
+            }
 
             if (settings.logo) {
                 document.getElementById('settingLogoPreview').src = settings.logo + "?v=" + new Date().getTime();
@@ -1548,10 +1610,7 @@ function managePengaturan() {
     });
 }
 
-/**
- * Menyimpan pengaturan aplikasi (sekolah, tema)
- */
-function saveAppSettings() {
+async function saveAppSettings() {
     const schoolName = document.getElementById('settingSchoolName').value;
     const shortName = document.getElementById('settingShortName').value;
     const academicYear = document.getElementById('settingAcademicYear').value;
@@ -1559,36 +1618,52 @@ function saveAppSettings() {
 
     const btn = document.getElementById('btnSaveSettings');
     const originalText = btn.innerHTML;
-    btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Menyimpan...`;
     btn.disabled = true;
+    btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Menyimpan...`;
 
-    const adminSession = JSON.parse(localStorage.getItem('adminSession') || '{}');
-    const headers = { 'Content-Type': 'application/json' };
-    if (adminSession.token) headers['Authorization'] = `Bearer ${adminSession.token}`;
-
-    fetch('/api/settings', {
-        method: 'POST',
-        headers: headers,
-        body: JSON.stringify({ schoolName, shortName, academicYear, theme })
-    })
-        .then(res => res.json())
-        .then(data => {
-            btn.innerHTML = originalText;
-            btn.disabled = false;
-            if (data && data.success) {
-                uiAlert('Pengaturan berhasil disimpan!', 'success');
-                appSettings = { ...appSettings, schoolName, shortName, academicYear, theme };
-                applyTheme(theme);
-                updateAppIdentity(appSettings);
-            } else {
-                uiAlert(data.message || 'Gagal menyimpan pengaturan.', 'error');
-            }
-        })
-        .catch(err => {
-            btn.innerHTML = originalText;
-            btn.disabled = false;
-            uiAlert('Error: ' + err.message, 'error');
+    try {
+        const res = await callAPI('updateSystemStatus', {
+            schoolName, shortName, academicYear, theme
         });
+        if (res && res.success) {
+            uiAlert("Pengaturan berhasil disimpan!", "success");
+            // Optional: update local cache if needed
+        } else {
+            uiAlert(res ? res.message : "Gagal menyimpan pengaturan.", "error");
+        }
+    } catch (e) {
+        uiAlert("Error: " + e.message, "error");
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+}
+
+/**
+ * Menyimpan pengaturan cepat (Pengumuman & Deadline) dari tab Mapel
+ */
+async function saveQuickSettings() {
+    const announcement = document.getElementById('quickAnnouncement').value;
+    const deadline = document.getElementById('quickDeadline').value;
+
+    const btn = document.getElementById('btnSaveQuickSettings');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i>...`;
+
+    try {
+        const res = await callAPI('updateSystemStatus', { announcement, deadline });
+        if (res && res.success) {
+            uiAlert("Pengaturan sistem berhasil diperbarui!", "success");
+        } else {
+            uiAlert(res ? res.message : "Gagal memperbarui pengaturan.", "error");
+        }
+    } catch (e) {
+        uiAlert("Error: " + e.message, "error");
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
 }
 
 /**
@@ -1661,22 +1736,26 @@ function renderMonitorContent(view = currentMonitorView, page = 0) {
     const totalBelum = totalSiswa - totalMemilih;
 
     const topMenu = `
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-               <div class="p-6 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
-                 <div>
-                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Sudah Memilih</p>
-                    <p class="text-3xl font-extrabold text-blue-700">${totalMemilih} <span class="text-sm font-medium text-slate-400">Siswa</span></p>
-                 </div>
-                 <div class="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600"><i class="fa-solid fa-check-circle text-xl"></i></div>
-               </div>
-               
-               <div class="p-6 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
-                 <div>
-                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Belum Memilih</p>
-                    <p class="text-3xl font-extrabold text-red-600">${totalBelum} <span class="text-sm font-medium text-slate-400">Siswa</span></p>
-                 </div>
-                 <div class="w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center text-red-600"><i class="fa-solid fa-times-circle text-xl"></i></div>
-               </div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <!-- Chart 1: Status Pemilihan (Pie) -->
+                <div class="p-6 bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-center items-center">
+                    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-widest leading-none mb-4">Status Pemilihan</h3>
+                    <div class="relative w-full h-48 flex justify-center">
+                        <canvas id="chartStatus"></canvas>
+                    </div>
+                    <div class="mt-4 flex gap-4 text-sm font-bold">
+                        <span class="text-blue-600"><i class="fa-solid fa-check-circle"></i> Sudah: ${totalMemilih}</span>
+                        <span class="text-red-500"><i class="fa-solid fa-times-circle"></i> Belum: ${totalBelum}</span>
+                    </div>
+                </div>
+
+                <!-- Chart 2: Popularitas Paket (Bar) -->
+                <div class="p-6 bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-center items-center w-full">
+                    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-widest leading-none mb-4">Distribusi Pilihan Mapel</h3>
+                    <div class="relative w-full h-48">
+                        <canvas id="chartPopuler"></canvas>
+                    </div>
+                </div>
             </div>
 
             <div class="flex justify-center md:justify-start gap-2 bg-slate-100 p-1 rounded-xl w-fit mb-6">
@@ -1685,6 +1764,11 @@ function renderMonitorContent(view = currentMonitorView, page = 0) {
                 </button>
                 <button onclick="switchMonitorView('unselected')" class="${currentMonitorView === 'unselected' ? btnClassActive : btnClassInactive}">
                    <i class="fa-solid fa-user-xmark mr-2"></i> Siswa Belum Memilih
+                </button>
+            </div>
+            <div class="mb-6 flex justify-end">
+                <button onclick="exportFinalReportExcel()" class="px-4 py-2 bg-green-600 text-white font-bold text-xs rounded-lg shadow-sm hover:bg-green-700 transition-all flex items-center gap-2">
+                    <i class="fa-solid fa-file-excel"></i> Export Laporan Akhir (Excel)
                 </button>
             </div>
           `;
@@ -1705,6 +1789,9 @@ function renderMonitorContent(view = currentMonitorView, page = 0) {
 
     document.getElementById('dashboardContent').innerHTML = `<div class="fade-in">${topMenu} ${content}</div>`;
 
+    // Render Charts after DOM update
+    setTimeout(renderDashboardCharts, 100);
+
     // Restore focus
     if (activeId) {
         const el = document.getElementById(activeId);
@@ -1714,6 +1801,137 @@ function renderMonitorContent(view = currentMonitorView, page = 0) {
                 el.setSelectionRange(cursorPosition, cursorPosition);
             }
         }
+    }
+}
+
+/**
+ * Export all student selection data to Excel
+ */
+function exportFinalReportExcel() {
+    if (!allUsersData || allUsersData.length === 0) {
+        uiAlert("Data siswa tidak tersedia untuk di-export.", "error");
+        return;
+    }
+
+    const data = allUsersData.map((u, index) => {
+        const choice = rawActivities.find(a => String(a.nisn) === String(u.nisn));
+        return {
+            'No': index + 1,
+            'NISN': u.nisn,
+            'Nama Lengkap': u.nama,
+            'Kelas': u.kelas,
+            'Psikotes': u.psikotes || '-',
+            'Minat Karir': (u.karir || []).join(', '),
+            'Pilihan Mapel': choice ? choice.pilihan : '(Belum Memilih)',
+            'Waktu Pilih': choice ? choice.waktu : '-'
+        };
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan Pemilihan");
+
+    // Auto-size columns
+    const wscols = [
+        { wch: 5 }, { wch: 15 }, { wch: 30 }, { wch: 10 }, { wch: 15 }, { wch: 25 }, { wch: 30 }, { wch: 20 }
+    ];
+    worksheet['!cols'] = wscols;
+
+    const fileName = `Laporan_Pemilihan_Mapel_${appSettings.shortName || 'Sekolah'}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+}
+
+/**
+ * Initialize and render Chart.js graphs for the admin dashboard
+ */
+function renderDashboardCharts() {
+    const totalSiswa = allUsersData.length;
+    const totalMemilih = new Set(rawActivities.map(a => String(a.nisn))).size;
+    const totalBelum = totalSiswa - totalMemilih;
+
+    // 1. Render Pie Chart (Status Pemilihan)
+    const ctxStatus = document.getElementById('chartStatus');
+    if (ctxStatus) {
+        if (window.chartStatusInstance) window.chartStatusInstance.destroy();
+        window.chartStatusInstance = new Chart(ctxStatus, {
+            type: 'doughnut',
+            data: {
+                labels: ['Sudah Memilih', 'Belum Memilih'],
+                datasets: [{
+                    data: [totalMemilih, totalBelum],
+                    backgroundColor: ['#2563eb', '#ef4444'],
+                    borderWidth: 0,
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function (context) {
+                                let label = context.label || '';
+                                if (label) { label += ': '; }
+                                if (context.parsed !== null) { label += context.parsed + ' Siswa'; }
+                                return label;
+                            }
+                        }
+                    }
+                },
+                cutout: '70%'
+            }
+        });
+    }
+
+    // 2. Render Bar Chart (Popularitas Paket)
+    const ctxPopuler = document.getElementById('chartPopuler');
+    if (ctxPopuler) {
+        const counts = {};
+        rawActivities.forEach(a => {
+            counts[a.pilihan] = (counts[a.pilihan] || 0) + 1;
+        });
+
+        // Sort by most popular
+        const sortedLabels = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+        const sortedData = sortedLabels.map(l => counts[l]);
+
+        if (window.chartPopulerInstance) window.chartPopulerInstance.destroy();
+        window.chartPopulerInstance = new Chart(ctxPopuler, {
+            type: 'bar',
+            data: {
+                labels: sortedLabels,
+                datasets: [{
+                    label: 'Jumlah Siswa',
+                    data: sortedData,
+                    backgroundColor: '#eab308',
+                    borderRadius: 4,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { stepSize: 1 }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: {
+                            callback: function (val, index) {
+                                let label = this.getLabelForValue(val);
+                                return label.length > 10 ? label.substr(0, 10) + '...' : label;
+                            }
+                        }
+                    }
+                }
+            }
+        });
     }
 }
 
@@ -1791,7 +2009,8 @@ function renderActivityLog(page = 0) {
               <td class="py-4 px-4 text-center">
                 <div class="flex items-center justify-center gap-2">
                   <button type="button" onclick="downloadTemplate('${p.nisn}')" title="Unduh Surat Persetujuan" class="w-8 h-8 flex items-center justify-center text-blue-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all border border-transparent hover:border-blue-100"><i class="fa-solid fa-download"></i></button>
-                  <button type="button" onclick="confirmDelete('${p.nisn}', '${user ? user.nama : p.nisn}')" title="Hapus Data" class="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all border border-transparent hover:border-red-100"><i class="fa-solid fa-trash-can"></i></button>
+                  <button type="button" onclick="confirmResetPilihan('${p.nisn}', '${user ? user.nama : p.nisn}')" title="Reset Pilihan Siswa" class="w-8 h-8 flex items-center justify-center text-slate-300 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-all border border-transparent hover:border-orange-100"><i class="fa-solid fa-rotate-left"></i></button>
+                  <button type="button" onclick="confirmDelete('${p.nisn}', '${user ? user.nama : p.nisn}')" title="Hapus Permanen Data Pilihan" class="w-8 h-8 flex items-center justify-center text-slate-200 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all border border-transparent hover:border-red-100"><i class="fa-solid fa-trash-can"></i></button>
                 </div>
               </td>
             </tr>`;
@@ -2044,9 +2263,28 @@ function loadMapelManager() {
     // --- NEW: FETCH SYSTEM STATUS & MAPEL ---
     Promise.all([callAPI('getMapelOptions'), callAPI('getSystemStatus')]).then(values => {
         const mapels = values[0] || [];
-        const status = values[1]; // Expected { isOpen: boolean, timezone: string }
+        const status = values[1]; // Expected { isOpen: boolean, timezone: string, announcement: string, deadline: string }
         isSystemOpen = status ? status.isOpen : true;
         window.currentTimezone = status ? (status.timezone || 'GMT+8') : 'GMT+8';
+        window.currentAnnouncement = status ? (status.announcement || '') : '';
+
+        // Format deadline for datetime-local input
+        if (status && status.deadline) {
+            try {
+                const d = new Date(status.deadline);
+                if (!isNaN(d.getTime())) {
+                    const formatted = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                    window.currentDeadline = formatted;
+                } else {
+                    window.currentDeadline = '';
+                }
+            } catch (e) {
+                window.currentDeadline = '';
+            }
+        } else {
+            window.currentDeadline = '';
+        }
+
         renderMapelManager(mapels);
     });
 }
@@ -2136,13 +2374,42 @@ function renderMapelManager(mapels) {
     document.getElementById('dashboardContent').innerHTML = `
             <div class="fade-in grid grid-cols-1 md:grid-cols-3 gap-8">
                
-               <div class="md:col-span-1 space-y-6">
+                  <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5">
+                      <div class="flex items-center gap-2 pb-4 border-b border-slate-100">
+                         <i class="fa-solid fa-gears text-blue-600"></i>
+                         <h3 class="font-bold text-slate-800">Kontrol Sistem</h3>
+                      </div>
+                      
+                      <div class="space-y-4">
+                          <!-- Status Toggle -->
+                          <div class="bg-blue-50/50 p-4 rounded-xl border border-blue-100/50 relative overflow-hidden">
+                             <div class="relative z-10 flex items-center justify-between">
+                                 <div>
+                                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Status Pendaftaran</p>
+                                    <p id="systemStatusLabel" class="text-xs font-extrabold tracking-widest ${statusColor}">${statusText}</p>
+                                 </div>
+                                 <div class="relative inline-block w-12 h-6 align-middle select-none transition duration-200 ease-in">
+                                    <input type="checkbox" name="toggle" id="systemToggle" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer transition-all duration-300 border-slate-300" ${isSystemOpen ? 'checked' : ''} onclick="toggleSystemStatus()"/>
+                                    <label for="systemToggle" class="toggle-label block overflow-hidden h-6 rounded-full bg-slate-300 cursor-pointer transition-colors duration-300"></label>
+                                 </div>
+                             </div>
+                          </div>
 
-                  <div class="bg-yellow-50 border border-yellow-200 p-4 rounded-xl shadow-sm text-yellow-800 flex gap-3 text-sm">
-                      <i class="fa-solid fa-circle-info mt-0.5 shrink-0 text-yellow-500"></i>
-                      <div>
-                          <p class="font-bold mb-1">Pendaftaran ditutup/dibuka</p>
-                          <p class="text-xs text-yellow-700 leading-relaxed">Jika ditutup, siswa tidak dapat mengakses form pemilihan paket. Gunakan toggle di bawah ini untuk mengatur status pendaftaran.</p>
+                          <!-- Quick Announcement -->
+                          <div class="space-y-1.5">
+                              <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">Papan Pengumuman (Siswa)</label>
+                              <textarea id="quickAnnouncement" rows="2" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:border-blue-500 outline-none transition" placeholder="Tulis pengumuman...">${window.currentAnnouncement || ''}</textarea>
+                          </div>
+
+                          <!-- Quick Deadline -->
+                          <div class="space-y-1.5">
+                              <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">Batas Waktu (Otomatis)</label>
+                              <input type="datetime-local" id="quickDeadline" class="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:border-blue-500 outline-none transition cursor-pointer" value="${window.currentDeadline || ''}">
+                          </div>
+
+                          <button onclick="saveQuickSettings()" id="btnSaveQuickSettings" class="btn-official w-full py-3 rounded-xl font-bold text-[11px] uppercase tracking-widest shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2">
+                              <i class="fa-solid fa-save"></i> Simpan Perubahan
+                          </button>
                       </div>
                   </div>
 
@@ -2153,19 +2420,6 @@ function renderMapelManager(mapels) {
                       </div>
                       
                       <div class="space-y-4">
-                          <div class="bg-blue-50/50 p-4 rounded-xl border border-blue-100/50 mb-2 relative overflow-hidden">
-                             <div class="absolute top-0 right-0 w-12 h-12 bg-blue-100 rounded-full -mr-4 -mt-4 opacity-50"></div>
-                             <div class="relative z-10 flex items-center justify-between">
-                                 <div>
-                                    <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Status Aplikasi</p>
-                                    <p id="systemStatusLabel" class="text-xs font-extrabold tracking-widest ${statusColor}">${statusText}</p>
-                                 </div>
-                                 <div class="relative inline-block w-12 h-6 align-middle select-none transition duration-200 ease-in">
-                                    <input type="checkbox" name="toggle" id="systemToggle" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer transition-all duration-300 border-slate-300" ${isSystemOpen ? 'checked' : ''} onclick="toggleSystemStatus()"/>
-                                    <label for="systemToggle" class="toggle-label block overflow-hidden h-6 rounded-full bg-slate-300 cursor-pointer transition-colors duration-300"></label>
-                                 </div>
-                             </div>
-                          </div>
                          <div>
                             <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Nama Kelompok</label>
                             <input type="text" id="addNama" placeholder="Contoh: KELOMPOK 1" class="w-full p-3 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-blue-500 transition-all">
