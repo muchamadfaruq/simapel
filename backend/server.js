@@ -752,14 +752,14 @@ async function handleUpdateSystemStatus(payload, res) {
                 // Only update known keys to safety
                 const validKeys = ['schoolName', 'schoolShortName', 'academicYear', 'theme', 'announcement', 'deadline', 'isSystemOpen'];
                 if (validKeys.includes(dbKey)) {
-                    await db.query("UPDATE settings SET value = ? WHERE key = ?", [String(value), dbKey]);
+                    await db.query(`INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value`, [dbKey, String(value)]);
                 }
             }
             res.json({ success: true });
         } else {
             // Simple toggle for isSystemOpen (legacy or simple toggle)
             const val = payload ? 'true' : 'false';
-            await db.query("UPDATE settings SET value = ? WHERE key = 'isSystemOpen'", [val]);
+            await db.query(`INSERT INTO settings (key, value) VALUES ('isSystemOpen', ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value`, [val]);
             res.json({ success: true });
         }
     } catch (err) {
@@ -769,8 +769,13 @@ async function handleUpdateSystemStatus(payload, res) {
 }
 
 async function handleUpdateTimezone(newTz, res) {
-    await db.query("UPDATE settings SET value = ? WHERE key = 'timezone'", [newTz]);
-    res.json({ success: true, message: "Zona waktu berhasil diperbarui ke " + newTz });
+    try {
+        await db.query(`INSERT INTO settings (key, value) VALUES ('timezone', ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value`, [newTz]);
+        res.json({ success: true, message: "Zona waktu berhasil diperbarui ke " + newTz });
+    } catch (err) {
+        console.error("Update Timezone Error:", err);
+        res.status(500).json({ success: false, message: err.message });
+    }
 }
 
 async function handleAddMapel(payload, res) {
