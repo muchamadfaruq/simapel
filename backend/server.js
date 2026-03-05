@@ -442,16 +442,8 @@ app.post('/api', async (req, res) => {
                 return res.json(null);
             case 'getMapelOptions':
                 return await handleGetMapelOptions(res);
-            case 'getRecentActivities':
-                return await handleGetRecentActivities(res);
             case 'getSystemStatus':
                 return await handleGetSystemStatus(res);
-            case 'updateSystemStatus':
-                return await handleUpdateSystemStatus(payload, res);
-            case 'updateTimezone':
-                return authenticateToken(req, res, async () => {
-                    return await handleUpdateTimezone(payload, res);
-                });
             case 'addMapel':
             case 'editMapel':
             case 'deleteMapelConfig':
@@ -464,8 +456,8 @@ app.post('/api', async (req, res) => {
             case 'resetAllData':
             case 'deletePilihan':
             case 'updateNilaiMapel':
-            case 'getRecentActivities':
             case 'updateSystemStatus':
+            case 'updateTimezone':
                 // Check authentication for these actions
                 return authenticateToken(req, res, async () => {
                     switch (action) {

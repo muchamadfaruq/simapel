@@ -69,6 +69,12 @@ function initializeDatabase() {
 
         // Insert Default Values
         db.run(`INSERT OR IGNORE INTO settings (key, value) VALUES ('isSystemOpen', '1')`);
+        db.run(`INSERT OR IGNORE INTO settings (key, value) VALUES ('schoolName', 'SMA Negeri 2 Mengwi')`);
+        db.run(`INSERT OR IGNORE INTO settings (key, value) VALUES ('schoolShortName', 'DWISMA')`);
+        db.run(`INSERT OR IGNORE INTO settings (key, value) VALUES ('academicYear', '2026-2027')`);
+        db.run(`INSERT OR IGNORE INTO settings (key, value) VALUES ('theme', 'blue')`);
+        db.run(`INSERT OR IGNORE INTO settings (key, value) VALUES ('timezone', 'GMT+8')`);
+
         db.run(`INSERT OR IGNORE INTO staff (email, nama, password, role) VALUES ('admin@dwisma.id', 'Super Admin', 'admin123', 'Admin')`);
     });
 }
