@@ -2,45 +2,48 @@
 function getKesesuaianBadge(user, pilihan) {
     if (!user || !pilihan) return '<span class="text-xs text-slate-400">-</span>';
 
-    const pkg = (window.mapelCache || []).find(m => m.nama === pilihan) || {};
-    const pkgCategory = pkg.kategori || '';
+    const pilihanLower = pilihan.toLowerCase().trim();
 
-    // Hitung rata-rata nilai user
-    let userRataRata = 0;
-    if (user.nilaiMapel) {
-        const vals = Object.values(user.nilaiMapel).filter(v => !isNaN(parseFloat(v)));
-        if (vals.length > 0) userRataRata = vals.reduce((a, b) => a + parseFloat(b), 0) / vals.length;
+    // Cari data paket dari cache (case-insensitive)
+    const pkg = (window.mapelCache || []).find(m => m.nama.toLowerCase() === pilihanLower) || {};
+    const pkgCategory = (pkg.kategori || '').trim();
+
+    const nm = user.nilaiMapel; // object {PAKET 1: 80, ...}
+    const psikotes = (user.psikotes || '').trim();
+
+    // --- Pengecekan 1: Psikotes (exact match, sama dengan checkRecommendation) ---
+    let isPsikotesMatch = false;
+    if (psikotes && pkgCategory && pkgCategory !== 'Umum' && pkgCategory !== '-') {
+        isPsikotesMatch = psikotes.toLowerCase() === pkgCategory.toLowerCase();
     }
 
-    // Hitung rata-rata paket
-    let mapelValues = [];
-    (window.mapelCache || []).forEach(m => {
-        if (user.nilaiMapel && user.nilaiMapel[m.nama]) {
-            mapelValues.push({ nama: m.nama, nilai: parseFloat(user.nilaiMapel[m.nama]) });
-        }
-    });
-
-    let maxNilai = 0;
-    if (mapelValues.length > 0) {
-        maxNilai = Math.max(...mapelValues.map(m => m.nilai));
+    // --- Pengecekan 2: Nilai Akademik (sama dengan renderHasilPilihan) ---
+    let isNilaiHighest = false;
+    if (nm && typeof nm === 'object' && Object.keys(nm).length > 0) {
+        const vals = Object.values(nm).map(Number).filter(v => !isNaN(v));
+        const nilaiMax = vals.length > 0 ? Math.max(...vals) : 0;
+        // Cari nilai paket pilihan dengan case-insensitive key match
+        const key = Object.keys(nm).find(k => k.toLowerCase().trim() === pilihanLower);
+        const chosenNilai = key ? Number(nm[key]) : 0;
+        isNilaiHighest = chosenNilai > 0 && chosenNilai === nilaiMax;
     }
-    const chosenNilai = user.nilaiMapel && user.nilaiMapel[pilihan] ? parseFloat(user.nilaiMapel[pilihan]) : 0;
 
-    const isPsikotesMatch = user.psikotes && pkgCategory && String(user.psikotes).toLowerCase().includes(String(pkgCategory).toLowerCase());
-    const isNilaiHighest = chosenNilai >= maxNilai && chosenNilai > 0;
+    // --- Tentukan status (identik dengan renderHasilPilihan) ---
+    const totalScore = (isPsikotesMatch ? 1 : 0) + (isNilaiHighest ? 1 : 0);
 
-    let statusTitle = 'Kurang Sesuai';
-    let bgCol = 'bg-red-50 text-red-600 border-red-200';
-    let icon = 'fa-xmark';
-
-    if (isPsikotesMatch && isNilaiHighest) {
+    let statusTitle, bgCol, icon;
+    if (totalScore >= 2) {
         statusTitle = 'Sangat Sesuai';
         bgCol = 'bg-green-50 text-green-600 border-green-200';
         icon = 'fa-check-double';
-    } else if (isPsikotesMatch || isNilaiHighest) {
+    } else if (totalScore === 1) {
         statusTitle = 'Cukup Sesuai';
         bgCol = 'bg-yellow-50 text-yellow-600 border-yellow-200';
         icon = 'fa-check';
+    } else {
+        statusTitle = 'Kurang Sesuai';
+        bgCol = 'bg-red-50 text-red-600 border-red-200';
+        icon = 'fa-xmark';
     }
 
     return `<span class="w-full inline-flex justify-center items-center gap-1.5 px-2 py-1 text-[10px] font-bold uppercase tracking-wide border rounded-md ${bgCol}" title="Psikotes: ${isPsikotesMatch ? 'Sesuai' : 'Tidak Sesuai'} | Nilai Mapel: ${isNilaiHighest ? 'Tertinggi' : 'Bukan Tertinggi'}">${statusTitle}</span>`;
