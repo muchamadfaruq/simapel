@@ -156,6 +156,38 @@ mapeldwisma/
 
 ---
 
-## 📄 Lisensi
+## � Manajemen Multi-Instance (Satu VPS, Banyak Sekolah)
+
+Aplikasi ini dapat dijalankan dalam banyak instansi sekaligus di satu VPS dengan isolasi data penuh:
+
+1. **Isolasi Folder**: Gunakan folder berbeda (misal: `/var/www/sekolah-a` dan `/var/www/sekolah-b`). SQLite akan menyimpan database di folder masing-masing sehingga data tidak akan bercampur.
+2. **Perbedaan Port**: Atur variabel `PORT` yang berbeda di file `.env` setiap folder (contoh: 3000, 3001, dst).
+3. **Pengelolaan via PM2**: Gunakan **PM2** untuk menjalankan banyak proses di background:
+   ```bash
+   # Di folder sekolah A
+   pm2 start backend/server.js --name "mapel-sekolah-a"
+   
+   # Di folder sekolah B
+   pm2 start backend/server.js --name "mapel-sekolah-b"
+   ```
+4. **Pengelolaan via Docker Compose**: Jika menggunakan Docker, Anda bisa mendefinisikan banyak service dalam satu file `docker-compose.yml` dengan volume terpisah:
+   ```yaml
+   services:
+     app-sekolah-a:
+       build: ./sekolah-a
+       ports: ["3000:3000"]
+       volumes: ["./sekolah-a/backend/data:/app/backend/data"]
+     app-sekolah-b:
+       build: ./sekolah-b
+       ports: ["3001:3000"]
+       volumes: ["./sekolah-b/backend/data:/app/backend/data"]
+   ```
+5. **Reverse Proxy (Nginx)**: Hubungkan subdomain ke port masing-masing:
+   - `sekolah-a.dwisma.id` → `proxy_pass http://localhost:3000`
+   - `sekolah-b.dwisma.id` → `proxy_pass http://localhost:3001`
+
+---
+
+## �📄 Lisensi
 
 © Muchamad Faruq, S.Pd., Gr.
