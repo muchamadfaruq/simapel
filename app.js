@@ -1660,7 +1660,8 @@ async function saveQuickSettings() {
     try {
         const res = await callAPI('updateSystemStatus', { announcement, deadline });
         if (res && res.success) {
-            uiAlert("Pengaturan sistem berhasil diperbarui!", "success");
+            await uiAlert("Pengaturan sistem berhasil diperbarui!", "success");
+            location.reload();
         } else {
             uiAlert(res ? res.message : "Gagal memperbarui pengaturan.", "error");
         }
