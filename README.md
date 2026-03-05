@@ -50,6 +50,26 @@ Aplikasi web berbasis Node.js untuk memfasilitasi pemilihan kelompok mata pelaja
 
 ---
 
+## 💻 Estimasi Kebutuhan Resource
+
+Aplikasi ini dirancang sangat ringan karena menggunakan **SQLite** (tanpa database server terpisah) dan **Node.js**.
+
+### Spesifikasi Server / VPS
+| Komponen | Minimum | Rekomendasi |
+| :--- | :--- | :--- |
+| **CPU** | 1 Core (Shared) | 1-2 vCPU |
+| **RAM** | 512 MB | 1 GB - 2 GB |
+| **Penyimpanan** | 5 GB SSD | 10 GB+ SSD |
+| **OS** | Linux Ubuntu 20.04+ | Linux Ubuntu 22.04+ / Docker |
+
+### Detail Performa
+- **RAM Usage:** Sekitar 150MB - 300MB dalam kondisi normal. Penggunaan bisa naik singkat saat proses *generate* dokumen Excel/Word yang besar.
+- **Database:** Sangat efisien karena *file-based*. Cocok untuk menangani ribuan data siswa tanpa beban CPU yang tinggi.
+- **Concurrent Users:** Mampu menangani 50-100+ pengguna aktif secara bersamaan pada spesifikasi rekomendasi.
+
+
+---
+
 ## � Cara Menjalankan (Lokal / Komputer)
 
 ### Prasyarat
