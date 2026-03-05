@@ -458,6 +458,7 @@ app.post('/api', async (req, res) => {
             case 'updateNilaiMapel':
             case 'updateSystemStatus':
             case 'updateTimezone':
+            case 'getRecentActivities':
                 // Check authentication for these actions
                 return authenticateToken(req, res, async () => {
                     switch (action) {
@@ -696,19 +697,24 @@ async function handleSubmitPilihan(payload, req, res) {
 }
 
 async function handleGetRecentActivities(res) {
-    // Get stored timezone offset
-    const statusResult = await db.query("SELECT value FROM settings WHERE key = 'timezone'");
-    const tz = statusResult.rows.length > 0 ? statusResult.rows[0].value : 'GMT+8';
-    const offsetNum = parseInt(tz.replace('GMT+', '')) || 8;
-    const offsetStr = (offsetNum >= 0 ? '+' : '-') + Math.abs(offsetNum).toString().padStart(2, '0') + ':00';
+    try {
+        // Get stored timezone offset
+        const statusResult = await db.query("SELECT value FROM settings WHERE key = 'timezone'");
+        const tz = statusResult.rows.length > 0 ? statusResult.rows[0].value : 'GMT+8';
+        const offsetNum = parseInt(tz.replace('GMT+', '')) || 8;
+        const offsetStr = (offsetNum >= 0 ? '+' : '-') + Math.abs(offsetNum).toString().padStart(2, '0') + ':00';
 
-    const query = `
-        SELECT p.nisn, p.pilihan, strftime('%H:%M', datetime(p.waktu, '${offsetStr}')) as waktu 
-        FROM pilihan p 
-        ORDER BY p.waktu DESC
-    `;
-    const { rows } = await db.query(query);
-    res.json(rows);
+        const query = `
+            SELECT p.nisn, p.pilihan, strftime('%H:%M', datetime(p.waktu, '${offsetStr}')) as waktu 
+            FROM pilihan p 
+            ORDER BY p.waktu DESC
+        `;
+        const { rows } = await db.query(query);
+        res.json(Array.isArray(rows) ? rows : []);
+    } catch (error) {
+        console.error("handleGetRecentActivities Error:", error);
+        res.status(500).json({ success: false, message: error.message, error: true });
+    }
 }
 
 async function handleGetSystemStatus(res) {

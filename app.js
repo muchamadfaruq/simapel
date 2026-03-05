@@ -1497,11 +1497,14 @@ function loadMonitoringData() {
         callAPI('getRecentActivities'),
         callAPI('getMapelOptions')
     ]).then(values => {
-        rawActivities = values[0] || [];
-        window.mapelCache = values[1] || [];
+        rawActivities = Array.isArray(values[0]) ? values[0] : [];
+        window.mapelCache = Array.isArray(values[1]) ? values[1] : [];
         renderMonitorContent();
     }).catch(err => {
         console.error("Gagal memuat data monitoring:", err);
+        rawActivities = [];
+        window.mapelCache = [];
+        renderMonitorContent();
     });
 }
 

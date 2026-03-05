@@ -111,13 +111,13 @@ systemctl enable --now docker
 ### 3. Jalankan Aplikasi
 
 ```bash
-docker compose up -d --build
+sudo docker compose up -d --build
 ```
 
 Cek status:
 ```bash
-docker ps           # lihat container aktif
-docker logs mapel-app   # lihat log aplikasi
+sudo docker ps           # lihat container aktif
+sudo docker logs mapel-app   # lihat log aplikasi
 ```
 
 Akses di browser: **http://IP_VPS_ANDA:3000**
