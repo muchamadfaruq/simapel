@@ -1015,10 +1015,12 @@ async function savePilihan(event) {
     btn.disabled = true;
     btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Menyimpan Data...`;
 
-    callAPI('submitPilihan', {
-        nisn: sessionSiswa.nisn,
-        pilihan: pilihan
-    }).then(res => {
+    try {
+        const res = await callAPI('submitPilihan', {
+            nisn: sessionSiswa.nisn,
+            pilihan: pilihan
+        });
+
         if (res && (res.includes("Sukses") || res.includes("berhasil"))) {
             sessionSiswa.sudahMemilih = true;
             sessionSiswa.pilihanAnda = pilihan;
@@ -1028,7 +1030,7 @@ async function savePilihan(event) {
                 const m = window.mapelCache.find(mc => mc.nama === pilihan);
                 if (m) {
                     if (m.deskripsi) sessionSiswa.deskripsiPilihan = m.deskripsi;
-                    if (m.kategori) sessionSiswa.kategoriPilihan = m.kategori; // Persisted for kesesuaian on refresh
+                    if (m.kategori) sessionSiswa.kategoriPilihan = m.kategori;
                 }
             }
 
@@ -1041,11 +1043,22 @@ async function savePilihan(event) {
                 renderHasilPilihan(sessionSiswa);
             }, 50);
         } else {
-            uiAlert(res || "Gagal menyimpan.", "error");
+            // res could be null (from 401/network error handled by callAPI) or an error string
+            const errMsg = (res && typeof res === 'string') ? res : "Gagal menyimpan. Silakan coba lagi.";
+            // Only show error if callAPI didn't already show one (null means it already handled it)
+            if (res !== null) {
+                await uiAlert(errMsg, "error");
+            }
             btn.disabled = false;
             btn.innerHTML = originalText;
         }
-    });
+    } catch (err) {
+        // Safety catch — should not normally reach here since callAPI handles errors internally
+        console.error("savePilihan error:", err);
+        await uiAlert("Terjadi kesalahan. Silakan coba lagi.", "error");
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
 }
 
 /**

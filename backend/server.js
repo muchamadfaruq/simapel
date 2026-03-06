@@ -145,7 +145,7 @@ app.post('/api/siswa/verify', async (req, res) => {
 });
 
 // 3. Submit Choice
-app.post('/api/pilihan/submit', submitLimiter, authenticateToken, async (req, res) => {
+app.post('/api/pilihan/submit', authenticateToken, async (req, res) => {
     return await handleSubmitPilihan(req.body, req, res);
 });
 
