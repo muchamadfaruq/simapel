@@ -2105,6 +2105,34 @@ function renderActivityLog(page = 0) {
                   <tbody class="divide-y divide-slate-100">${tableRows || '<tr><td colspan="10" class="py-12 text-center text-slate-400 font-medium italic bg-slate-50/50">Belum ada data terekam</td></tr>'}</tbody>
                 </table>
               </div>
+              
+              <!-- Pagination Controls -->
+              ${totalPages > 1 ? `
+              <div class="flex items-center justify-between px-6 py-4 border-t border-slate-200 bg-slate-50">
+                  <div class="text-xs text-slate-500 font-medium">
+                      Menampilkan <span class="font-bold text-slate-700">${(page * PAGE_SIZE) + 1}</span> sampai <span class="font-bold text-slate-700">${Math.min((page + 1) * PAGE_SIZE, filtered.length)}</span> dari <span class="font-bold text-slate-700">${filtered.length}</span> entri
+                  </div>
+                  <div class="flex items-center gap-2">
+                      <button ${page === 0 ? 'disabled' : `onclick="renderMonitorContent('log', ${page - 1})"`} 
+                              class="px-3 py-1.5 text-xs font-bold rounded-lg border ${page === 0 ? 'border-slate-200 text-slate-400 bg-slate-100 cursor-not-allowed' : 'border-slate-300 text-slate-600 bg-white hover:bg-slate-100 transition-colors'}">
+                          <i class="fa-solid fa-chevron-left mr-1"></i> Prev
+                      </button>
+                      
+                      <div class="flex gap-1 overflow-x-auto max-w-[200px] no-scrollbar px-1">
+                          ${Array.from({ length: totalPages }, (_, i) => `
+                              <button onclick="renderMonitorContent('log', ${i})" 
+                                      class="w-8 h-8 flex-shrink-0 flex items-center justify-center text-xs font-bold rounded-lg ${i === page ? 'bg-blue-600 text-white shadow-md' : 'bg-white border border-slate-300 text-slate-600 hover:bg-slate-100 transition-colors'}">
+                                  ${i + 1}
+                              </button>
+                          `).join('')}
+                      </div>
+
+                      <button ${page >= totalPages - 1 ? 'disabled' : `onclick="renderMonitorContent('log', ${page + 1})"`} 
+                              class="px-3 py-1.5 text-xs font-bold rounded-lg border ${page >= totalPages - 1 ? 'border-slate-200 text-slate-400 bg-slate-100 cursor-not-allowed' : 'border-slate-300 text-slate-600 bg-white hover:bg-slate-100 transition-colors'}">
+                          Next <i class="fa-solid fa-chevron-right ml-1"></i>
+                      </button>
+                  </div>
+              </div>` : ''}
             </div>
           </div>`;
 }
