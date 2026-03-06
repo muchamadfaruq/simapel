@@ -1835,6 +1835,23 @@ function exportFinalReportExcel() {
 
     const data = allUsersData.map((u, index) => {
         const choice = rawActivities.find(a => String(a.nisn) === String(u.nisn));
+        let kesesuaianText = '-';
+
+        if (choice && choice.pilihan && window.mapelCache) {
+            const mIndex = window.mapelCache.findIndex(m => m.nama === choice.pilihan);
+            const m = window.mapelCache[mIndex];
+
+            if (m) {
+                const recommendedByGrades = getRecommendedIndicesByGrades(u, window.mapelCache);
+                const rec = checkRecommendation(u, m, mIndex, recommendedByGrades);
+                const n = rec.reasons.length;
+
+                if (n >= 2) kesesuaianText = 'Sangat Sesuai: ' + rec.reasons.join(' & ');
+                else if (n === 1) kesesuaianText = 'Sesuai: ' + rec.reasons[0];
+                else kesesuaianText = 'Kurang Sesuai';
+            }
+        }
+
         return {
             'No': index + 1,
             'NISN': u.nisn,
@@ -1843,6 +1860,7 @@ function exportFinalReportExcel() {
             'Psikotes': u.psikotes || '-',
             'Minat Karir': (u.karir || []).join(', '),
             'Pilihan Mapel': choice ? choice.pilihan : '(Belum Memilih)',
+            'Kesesuaian': kesesuaianText,
             'Waktu Pilih': choice ? choice.waktu : '-'
         };
     });
@@ -1851,9 +1869,9 @@ function exportFinalReportExcel() {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan Pemilihan");
 
-    // Auto-size columns
+    // Auto-size columns (added Kesesuaian)
     const wscols = [
-        { wch: 5 }, { wch: 15 }, { wch: 30 }, { wch: 10 }, { wch: 15 }, { wch: 25 }, { wch: 30 }, { wch: 20 }
+        { wch: 5 }, { wch: 15 }, { wch: 30 }, { wch: 10 }, { wch: 15 }, { wch: 25 }, { wch: 30 }, { wch: 40 }, { wch: 20 }
     ];
     worksheet['!cols'] = wscols;
 
