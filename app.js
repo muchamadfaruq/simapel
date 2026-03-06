@@ -1974,6 +1974,29 @@ function renderDashboardCharts() {
 }
 
 /**
+ * Helper: Mengembalikan nilai skor kesesuaian untuk keperluan sorting dan filtering
+ * @param {object} user - Data lengkap siswa
+ * @param {string} pilihan - Nama paket yang dipilih opsi
+ * @returns {number} 3 (Sangat Sesuai), 2 (Sesuai), 1 (Kurang Sesuai), -1 (Tidak Diketahui)
+ */
+function getKesesuaianScore(user, pilihan) {
+    if (!user || user.nilaiPaket === null || !window.mapelCache || window.mapelCache.length === 0) return -1;
+    const mIndex = window.mapelCache.findIndex(m => m.nama === pilihan);
+    if (mIndex === -1) return -1;
+
+    const m = window.mapelCache[mIndex];
+    if (!m) return -1;
+
+    const recommendedByGrades = getRecommendedIndicesByGrades(user, window.mapelCache);
+    const rec = checkRecommendation(user, m, mIndex, recommendedByGrades);
+    const n = rec.reasons.length;
+
+    if (n >= 2) return 3; // Sangat Sesuai
+    if (n === 1) return 2; // Sesuai
+    return 1; // Kurang Sesuai
+}
+
+/**
  * Merender tabel riwayat pemilihan (Log Aktivitas)
  * @param {number} page
  * @returns {string} - HTML table rows
@@ -1987,28 +2010,54 @@ function renderActivityLog(page = 0) {
     }))].filter(Boolean).sort();
     const listMapel = [...new Set(rawActivities.map(p => p.pilihan))].filter(Boolean).sort();
 
-    let filtered = rawActivities;
+    // Attach kesesuaian score and string to rawActivities to avoid recalculating repetitively
+    let activitiesWithScores = rawActivities.map(p => {
+        const u = allUsersData.find(user => String(user.nisn) === String(p.nisn));
+        const score = u ? getKesesuaianScore(u, p.pilihan) : -1;
+        let str = score === 3 ? "Sangat Sesuai" :
+            score === 2 ? "Sesuai" :
+                score === 1 ? "Kurang Sesuai" : "Tidak Diketahui";
+        return { ...p, kesesuaianScore: score, kesesuaianStr: str, user: u };
+    });
+
+    let filtered = activitiesWithScores;
     const currentSearch = document.getElementById('searchLog') ? document.getElementById('searchLog').value.toLowerCase() : "";
     const currentKelas = document.getElementById('filterKelas') ? document.getElementById('filterKelas').value : "";
     const currentMapel = document.getElementById('filterMapel') ? document.getElementById('filterMapel').value : "";
+    const currentKesesuaian = document.getElementById('filterKesesuaian') ? document.getElementById('filterKesesuaian').value : "";
+    const currentSort = document.getElementById('sortLog') ? document.getElementById('sortLog').value : "terbaru";
 
     if (currentSearch) {
         filtered = filtered.filter(p => {
-            const u = allUsersData.find(user => String(user.nisn) === String(p.nisn));
-            const nama = u ? u.nama.toLowerCase() : '';
+            const nama = p.user ? p.user.nama.toLowerCase() : '';
             return String(p.nisn).includes(currentSearch) || nama.includes(currentSearch);
         });
     }
 
     if (currentKelas) {
-        filtered = filtered.filter(p => {
-            const u = allUsersData.find(u => String(u.nisn) === String(p.nisn));
-            return u && u.kelas === currentKelas;
-        });
+        filtered = filtered.filter(p => p.user && p.user.kelas === currentKelas);
     }
     if (currentMapel) {
         filtered = filtered.filter(p => p.pilihan === currentMapel);
     }
+    if (currentKesesuaian) {
+        filtered = filtered.filter(p => String(p.kesesuaianScore) === currentKesesuaian);
+    }
+
+    // Sorting logic
+    if (currentSort === "terlama") {
+        // Reverse array (assuming rawActivities is chronological 'terbaru' first)
+        filtered = [...filtered].reverse();
+    } else if (currentSort === "sesuai_tinggi") {
+        filtered.sort((a, b) => b.kesesuaianScore - a.kesesuaianScore);
+    } else if (currentSort === "sesuai_rendah") {
+        filtered.sort((a, b) => {
+            // Treat -1 (Tidak Diketahui) as neutral middle or ignore, let's just sort naturally:
+            let sa = a.kesesuaianScore === -1 ? 0 : a.kesesuaianScore;
+            let sb = b.kesesuaianScore === -1 ? 0 : b.kesesuaianScore;
+            return sa - sb;
+        });
+    } // else "terbaru" - leave as is (preserves original order)
 
     if (page === undefined || page === null) page = 0;
     window.logCurrentPage = page;
@@ -2023,7 +2072,7 @@ function renderActivityLog(page = 0) {
     const offset = page * PAGE_SIZE;
 
     let tableRows = paginated.map((p, index) => {
-        const user = allUsersData.find(u => String(u.nisn) === String(p.nisn));
+        const user = p.user;
         const n = user && user.nilaiPaket ? user.nilaiPaket : ['-', '-', '-', '-'];
         return `
             <tr class="group border-b border-slate-100 hover:bg-blue-50/50 transition-colors">
@@ -2088,16 +2137,36 @@ function renderActivityLog(page = 0) {
                     <i class="fa-solid fa-search absolute left-3 top-3.5 text-slate-400 text-xs"></i>
                     <input type="text" id="searchLog" placeholder="Cari Nama/NISN..." oninput="renderMonitorContent('log', 0)" value="${currentSearch}" class="pl-8 pr-4 py-2.5 w-full md:w-48 text-xs font-bold border border-slate-200 rounded-lg bg-white text-slate-600 outline-none focus:border-blue-500 transition-all">
                 </div>
+                <!-- Filter Status Kesesuaian -->
+                <div class="relative">
+                    <i class="fa-solid fa-heart-circle-check absolute left-3 top-3.5 text-slate-400 text-xs"></i>
+                    <select id="filterKesesuaian" onchange="renderMonitorContent('log', 0)" class="pl-8 pr-8 py-2.5 text-xs font-bold border border-slate-200 rounded-lg bg-white text-slate-600 outline-none focus:border-blue-500 transition-all cursor-pointer">
+                        <option value="">Semua Kesesuaian</option>
+                        <option value="3" ${currentKesesuaian === '3' ? 'selected' : ''}>Sangat Sesuai</option>
+                        <option value="2" ${currentKesesuaian === '2' ? 'selected' : ''}>Sesuai</option>
+                        <option value="1" ${currentKesesuaian === '1' ? 'selected' : ''}>Kurang Sesuai</option>
+                    </select>
+                </div>
                 <div class="relative">
                     <i class="fa-solid fa-filter absolute left-3 top-3.5 text-slate-400 text-xs"></i>
                     <select id="filterKelas" onchange="renderMonitorContent('log', 0)" class="pl-8 pr-8 py-2.5 text-xs font-bold border border-slate-200 rounded-lg bg-white text-slate-600 outline-none focus:border-blue-500 transition-all cursor-pointer">
                     <option value="">Semua Kelas</option>${listKelas.map(k => `<option value="${k}" ${k === currentKelas ? 'selected' : ''}>${k}</option>`).join('')}
                     </select>
                 </div>
-                <div class="relative">
+                <div class="relative hidden lg:block">
                     <i class="fa-solid fa-layer-group absolute left-3 top-3.5 text-slate-400 text-xs"></i>
                     <select id="filterMapel" onchange="renderMonitorContent('log', 0)" class="pl-8 pr-8 py-2.5 text-xs font-bold border border-slate-200 rounded-lg bg-white text-slate-600 outline-none focus:border-blue-500 transition-all cursor-pointer">
                     <option value="">Semua Paket</option>${listMapel.map(m => `<option value="${m}" ${m === currentMapel ? 'selected' : ''}>${m}</option>`).join('')}
+                    </select>
+                </div>
+                <!-- Sorting -->
+                <div class="relative">
+                    <i class="fa-solid fa-sort absolute left-3 top-3.5 text-slate-400 text-xs"></i>
+                    <select id="sortLog" onchange="renderMonitorContent('log', 0)" class="pl-8 pr-8 py-2.5 text-xs font-bold border border-slate-200 rounded-lg bg-white text-slate-600 outline-none focus:border-blue-500 transition-all cursor-pointer">
+                        <option value="terbaru" ${currentSort === 'terbaru' ? 'selected' : ''}>Baru Masuk</option>
+                        <option value="terlama" ${currentSort === 'terlama' ? 'selected' : ''}>Paling Lama</option>
+                        <option value="sesuai_tinggi" ${currentSort === 'sesuai_tinggi' ? 'selected' : ''}>Sangat Sesuai ke Bawah</option>
+                        <option value="sesuai_rendah" ${currentSort === 'sesuai_rendah' ? 'selected' : ''}>Kurang Sesuai ke Atas</option>
                     </select>
                 </div>
                 <button onclick="loadMonitoringData()" class="p-2.5 bg-white border border-slate-200 text-blue-600 rounded-lg hover:bg-blue-50 transition-all shadow-sm active:scale-95"><i class="fa-solid fa-arrows-rotate"></i></button>
