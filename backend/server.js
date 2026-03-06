@@ -12,11 +12,11 @@ const path = require('path');
 const multer = require('multer');
 
 // --- Konfigurasi Rate Limiter (Anti DoS & Brute Force) ---
-// 1. Limiter Khusus Login (Max 10x per 15 menit)
+// 1. Limiter Khusus Login (Max 30x per 15 menit, bisa dikonfigurasi via .env)
 const loginLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 10,
-    message: { success: false, message: 'Terlalu banyak percobaan login, silakan coba lagi setelah 15 menit.' },
+    windowMs: (process.env.LOGIN_LIMIT_WINDOW_MINS || 15) * 60 * 1000,
+    max: process.env.LOGIN_LIMIT_MAX || 30,
+    message: { success: false, message: 'Terlalu banyak percobaan login, silakan coba lagi setelah beberapa saat.' },
     standardHeaders: true,
     legacyHeaders: false,
 });
@@ -135,12 +135,12 @@ app.post('/api/upload-template', authenticateToken, isAdmin, upload.single('temp
 // --- NEW DEDICATED API ROUTES WITH RATE LIMITING ---
 
 // 1. Admin Login
-app.post('/api/admin/login', loginLimiter, async (req, res) => {
+app.post('/api/admin/login', async (req, res) => {
     return await handleLoginWithPassword(req.body, res);
 });
 
 // 2. Student Verification
-app.post('/api/siswa/verify', loginLimiter, async (req, res) => {
+app.post('/api/siswa/verify', async (req, res) => {
     return await handleVerifyNISN(req.body, res);
 });
 
