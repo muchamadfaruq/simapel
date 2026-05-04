@@ -1,11 +1,11 @@
-# Mapel DwiSma — Sistem Pemilihan Kelompok Mata Pelajaran SMA Berbasis Sistem Digital dan Analisis Data Akademik - Offline Menggunakan Jaringan Local
+# Mapel DwiSma — Sistem Pemilihan Kelompok Mata Pelajaran SMA Berbasis AI (Artificial Intelligence) dan Analisis Data Akademik - Offline Menggunakan Jaringan Lokal
 
 [![Node.js](https://img.shields.io/badge/Node.js-20+-green.svg)](https://nodejs.org/)
 [![Express.js](https://img.shields.io/badge/Express.js-Framework-lightgrey.svg)](https://expressjs.com/)
 [![SQLite](https://img.shields.io/badge/SQLite-Database-blue.svg)](https://sqlite.org/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://docker.com/)
 
-Aplikasi web berbasis Node.js untuk memfasilitasi pemilihan kelompok mata pelajaran (peminatan) bagi siswa SMA. Aplikasi ini dirancang untuk berjalan **100% secara offline** di jaringan lokal (LAN), sehingga tidak memerlukan koneksi internet untuk memuat library CSS/JS maupun font. Nama, logo, dan tahun ajaran dapat dikustomisasi langsung dari dashboard admin.
+Aplikasi web cerdas berbasis Node.js yang terintegrasi dengan **Kecerdasan Buatan (AI)** untuk memfasilitasi pemilihan kelompok mata pelajaran (peminatan) bagi siswa SMA secara personal dan presisi. Dilengkapi dengan teknologi *Edge AI*, aplikasi ini memproses analisis psikotes, nilai akademik, dan minat karir langsung di perangkat. Dirancang untuk berjalan **100% secara offline** di jaringan lokal (LAN), sistem ini tidak memerlukan koneksi internet untuk memuat library CSS/JS, model AI, maupun font. Nama, logo, dan tahun ajaran dapat dikustomisasi langsung dari dashboard admin.
 
 ---
 
