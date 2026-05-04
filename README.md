@@ -1,4 +1,4 @@
-# Mapel DwiSma — Sistem Pemilihan Kelompok Mata Pelajaran Offline Menggunakan Jaringan Local
+# Mapel DwiSma — Sistem Pemilihan Kelompok Mata Pelajaran SMA Berbasis Sistem Digital dan Analisis Data Akademik - Offline Menggunakan Jaringan Local
 
 [![Node.js](https://img.shields.io/badge/Node.js-20+-green.svg)](https://nodejs.org/)
 [![Express.js](https://img.shields.io/badge/Express.js-Framework-lightgrey.svg)](https://expressjs.com/)
