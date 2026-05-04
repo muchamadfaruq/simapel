@@ -5,7 +5,7 @@
 [![SQLite](https://img.shields.io/badge/SQLite-Database-blue.svg)](https://sqlite.org/)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://docker.com/)
 
-Aplikasi web berbasis Node.js untuk memfasilitasi pemilihan kelompok mata pelajaran (peminatan) bagi siswa SMA. Dapat digunakan di sekolah mana pun — nama, logo, dan tahun ajaran dapat dikustomisasi langsung dari dashboard admin.
+Aplikasi web berbasis Node.js untuk memfasilitasi pemilihan kelompok mata pelajaran (peminatan) bagi siswa SMA. Aplikasi ini dirancang untuk berjalan **100% secara offline** di jaringan lokal (LAN), sehingga tidak memerlukan koneksi internet untuk memuat library CSS/JS maupun font. Nama, logo, dan tahun ajaran dapat dikustomisasi langsung dari dashboard admin.
 
 ---
 
@@ -26,6 +26,7 @@ Aplikasi web berbasis Node.js untuk memfasilitasi pemilihan kelompok mata pelaja
 - **Reset Pilihan:** Fitur khusus admin untuk me-reset pilihan siswa agar bisa memilih ulang.
 - **Manajemen Data:** Monitoring real-time, import/export data siswa, dan manajemen paket mapel.
 - **Keamanan & Backup:** Backup & restore database (`.sqlite`) serta pengaturan identitas aplikasi.
+- **Offline & LAN Ready:** Seluruh aset statis (Tailwind, FontAwesome, SheetJS, Chart.js) disimpan secara lokal. Aplikasi tetap berfungsi penuh tanpa koneksi internet luar.
 
 ---
 
@@ -42,7 +43,7 @@ Aplikasi web berbasis Node.js untuk memfasilitasi pemilihan kelompok mata pelaja
 
 | Layer | Teknologi |
 |-------|-----------|
-| Frontend | HTML5, Vanilla JS, Tailwind CSS (CDN) |
+| Frontend | HTML5, Vanilla JS, Tailwind CSS (Self-hosted) |
 | Backend | Node.js, Express.js |
 | Database | SQLite3 (portable, tanpa instalasi tambahan) |
 | Auth | JWT + Bcrypt |
@@ -95,6 +96,10 @@ node server.js
 ```
 
 Buka **http://localhost:3000** di browser.
+
+> [!NOTE]
+> **100% Offline Ready:** Setelah instalasi `npm install` selesai, aplikasi tidak lagi membutuhkan koneksi internet. Semua library CSS, JS, dan Font sudah tersimpan di dalam folder `assets/`.
+
 
 ### 🔑 Akun Admin Default
 
