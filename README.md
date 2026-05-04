@@ -13,8 +13,9 @@ Aplikasi web berbasis Node.js untuk memfasilitasi pemilihan kelompok mata pelaja
 
 ### 👨‍🎓 Portal Siswa
 - Login dengan **NISN + Tanggal Lahir**
-- Rekomendasi paket mapel berdasarkan nilai akademik, psikotes, dan karir
-- Unduh **Surat Persetujuan Orang Tua** (DOCX, auto-fill)
+- Rekomendasi paket mapel cerdas berbasis **AI (TensorFlow.js)** yang menganalisis nilai akademik, psikotes, dan minat karir secara *real-time*.
+- Visualisasi rekomendasi dengan sistem lencana warna (Biru, Hijau, Kuning, Merah).
+- Unduh **Surat Persetujuan Orang Tua** (DOCX, auto-fill) yang menyertakan ringkasan hasil analisis.
 
 ### 🛡️ Dashboard Admin / Guru BK
 - **Visual Monitoring:** Grafik real-time status pemilihan dan popularitas paket (Chart.js) pada tab Dashboard Utama.
@@ -26,7 +27,9 @@ Aplikasi web berbasis Node.js untuk memfasilitasi pemilihan kelompok mata pelaja
 - **Reset Pilihan:** Fitur khusus admin untuk me-reset pilihan siswa agar bisa memilih ulang.
 - **Manajemen Data:** Monitoring real-time, import/export data siswa, dan manajemen paket mapel.
 - **Keamanan & Backup:** Backup & restore database (`.sqlite`) serta pengaturan identitas aplikasi.
-- **Offline & LAN Ready:** Seluruh aset statis (Tailwind, FontAwesome, SheetJS, Chart.js) disimpan secara lokal. Aplikasi tetap berfungsi penuh tanpa koneksi internet luar.
+- **Offline & LAN Ready:** Seluruh aset statis (Tailwind, FontAwesome, SheetJS, Chart.js, TensorFlow.js) disimpan secara lokal. Aplikasi tetap berfungsi penuh tanpa koneksi internet luar.
+- **Edge AI Processing:** Analisis rekomendasi diproses langsung di perangkat siswa (Client-side), menjaga privasi data dan kecepatan respon tanpa membebani server.
+
 
 ---
 
@@ -47,9 +50,35 @@ Aplikasi web berbasis Node.js untuk memfasilitasi pemilihan kelompok mata pelaja
 | Backend | Node.js, Express.js |
 | Database | SQLite3 (portable, tanpa instalasi tambahan) |
 | Auth | JWT + Bcrypt |
+| AI Engine | TensorFlow.js (Neural Network Client-Side) |
 | Dokumen | Docxtemplater, ExcelJS, Multer |
 
 ---
+
+## 🧠 Sistem Rekomendasi Cerdas (AI)
+
+Aplikasi ini dilengkapi dengan modul **Edge AI** menggunakan library **TensorFlow.js** untuk memberikan saran pemilihan paket yang sangat personal.
+
+### ⚙️ Bagaimana AI Bekerja?
+Sistem menggunakan model **Artificial Neural Network (ANN)** yang dilatih secara dinamis di sisi klien untuk memproses 3 variabel utama:
+
+1.  **🤖 Analisis Minat Karir (AI Karir)**: 
+    Sistem mengekstrak dan memproses input cita-cita/karir siswa melalui metode NLP sederhana yang terintegrasi dengan **Sistem Voting Mayoritas (Majority Voting System)**.
+    - **Kamus Komprehensif**: Terhubung dengan database ratusan kata kunci profesi yang dikategorikan ke dalam *Eksakta* (Kesehatan, Teknik, IT, Sains) dan *Non-Eksakta* (Hukum, Bisnis, Media, Seni, Sosial).
+    - **Algoritma Voting**: Jika siswa menginput lebih dari satu karir (misal: "Dokter, Jaksa, Hakim"), sistem akan menghitung bobot masing-masing kategori dan mengambil keputusan berdasarkan suara terbanyak (dalam kasus ini: Non-Eksakta).
+    - **Visualisasi UI**: Hasil analisis karir ini tidak hanya diproses di latar belakang, tetapi juga ditampilkan secara transparan berupa *badge* (Eksakta/Non-Eksakta) di Dashboard Siswa dan Tabel Manajemen Admin.
+
+2.  **📈 Korelasi Akademik**: Mencocokkan nilai mata pelajaran pendukung (Matematika, IPA, IPS, Bahasa) dengan profil paket yang tersedia.
+3.  **🧠 Verifikasi Psikotes**: Menyelaraskan hasil psikotes siswa dengan kategori paket mata pelajaran.
+
+### 🎨 Visualisasi Rekomendasi (3-Category Point System)
+Siswa diberikan panduan visual melalui lencana warna pada setiap kartu paket:
+- 🔵 **Biru (Sangat Direkomendasikan)**: Memenuhi 3 kriteria (Akademik + Psikotes + AI Karir).
+- 🟢 **Hijau (Direkomendasikan)**: Memenuhi 2 dari 3 kriteria.
+- 🟡 **Kuning (Cukup Sesuai)**: Memenuhi 1 kriteria.
+- 🔴 **Merah (Tidak Sesuai)**: Tidak memenuhi kriteria rekomendasi berdasarkan profil siswa.
+- ⚪ **Abu-abu**: Kuota paket telah penuh.
+
 
 ## 💻 Estimasi Kebutuhan Resource
 
