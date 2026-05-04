@@ -71,6 +71,37 @@ Aplikasi ini dirancang sangat ringan karena menggunakan **SQLite** (tanpa databa
 
 ---
 
+## 🌐 Topologi Jaringan Offline (LAN)
+
+Aplikasi ini dapat dijalankan sepenuhnya tanpa internet dengan menggunakan topologi jaringan lokal sederhana:
+
+```mermaid
+graph TD
+    subgraph "Jaringan Lokal (LAN / Wi-Fi)"
+        Router[Router / Modem Tanpa Internet]
+        Server[Komputer Server / Laptop]
+        HP1[HP Siswa 1]
+        HP2[HP Siswa 2]
+        Laptop1[Laptop Client]
+        
+        Router --- Server
+        Router --- HP1
+        Router --- HP2
+        Router --- Laptop1
+    end
+```
+
+### Langkah Konfigurasi:
+1. **Persiapan Server:** Jalankan aplikasi di satu komputer utama (Server). Pastikan komputer ini terhubung ke Router/Modem (via kabel LAN atau Wi-Fi).
+2. **Cek IP Server:** Cari tahu alamat IP lokal komputer server (contoh: `192.168.1.15`).
+   - Di Windows: Buka CMD, ketik `ipconfig`.
+3. **Hubungkan Client:** Sambungkan HP atau Laptop siswa ke jaringan Wi-Fi yang sama dengan Router tersebut.
+4. **Akses Aplikasi:** Buka browser di HP siswa dan ketik alamat IP Server beserta portnya.
+   - Contoh: `http://192.168.1.15:3000`
+
+---
+
+
 ## � Cara Menjalankan (Lokal / Komputer)
 
 ### Prasyarat
