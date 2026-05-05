@@ -246,12 +246,19 @@ docker save -o simapeldwisma.tar simapeldwisma:latest
 Pindahkan file `simapeldwisma.tar` dan `docker-compose.yml` ke server tujuan menggunakan Flashdisk atau media penyimpanan lainnya.
 
 ### 3. Di Server Tujuan (Offline)
-Masukkan image ke sistem Docker dan jalankan:
+
+> [!IMPORTANT]
+> Anda **WAJIB** menjalankan `docker load` terlebih dahulu. Tanpa langkah ini, Docker akan mencoba mengunduh image dari internet dan proses akan gagal.
+
+Buka terminal di folder tempat file berada, lalu jalankan:
 ```bash
-# Load image dari file .tar
+# 1. Masukkan image ke sistem Docker lokal (WAJIB)
 docker load -i simapeldwisma.tar
 
-# Jalankan aplikasi (pastikan docker-compose.yml menggunakan image: simapeldwisma:latest)
+# 2. Pastikan image sudah terdaftar
+docker images
+
+# 3. Jalankan aplikasi
 docker compose up -d
 ```
 
