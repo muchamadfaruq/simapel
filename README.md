@@ -1,4 +1,4 @@
-# Mapel DwiSma — Sistem Pemilihan Kelompok Mata Pelajaran SMA Berbasis AI (Artificial Intelligence) dan Analisis Data Akademik - Online & Offline Menggunakan Jaringan Lokal
+# Simapel Dwisma — Sistem Pemilihan Kelompok Mata Pelajaran SMA Berbasis AI (Artificial Intelligence) dan Analisis Data Akademik - Online & Offline Menggunakan Jaringan Lokal
 
 [![Node.js](https://img.shields.io/badge/Node.js-20+-green.svg)](https://nodejs.org/)
 [![Express.js](https://img.shields.io/badge/Express.js-Framework-lightgrey.svg)](https://expressjs.com/)
