@@ -228,6 +228,35 @@ Gunakan **Cloudflare Tunnel** atau **Nginx Proxy Manager** untuk mengarahkan dom
 
 ---
 
+## 📦 Deploy Offline via Docker (Tanpa Internet)
+
+Jika server tujuan **sama sekali tidak memiliki koneksi internet**, Anda dapat menggunakan metode *Save & Load* image:
+
+### 1. Di Komputer/Laptop (Ada Internet)
+Siapkan image dan bungkus menjadi file `.tar`:
+```bash
+# Build image
+docker build -t simapeldwisma:latest .
+
+# Simpan ke file .tar
+docker save -o simapeldwisma.tar simapeldwisma:latest
+```
+
+### 2. Pindahkan File
+Pindahkan file `simapeldwisma.tar` dan `docker-compose.yml` ke server tujuan menggunakan Flashdisk atau media penyimpanan lainnya.
+
+### 3. Di Server Tujuan (Offline)
+Masukkan image ke sistem Docker dan jalankan:
+```bash
+# Load image dari file .tar
+docker load -i simapeldwisma.tar
+
+# Jalankan aplikasi (pastikan docker-compose.yml menggunakan image: simapeldwisma:latest)
+docker compose up -d
+```
+
+---
+
 ## 📂 Struktur Folder Penting
 
 ```
