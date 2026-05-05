@@ -32,3 +32,6 @@ yarn-debug.log*
 # System Files
 .DS_Store
 Thumbs.db
+
+# Docker Images
+*.tar
