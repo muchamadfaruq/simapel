@@ -182,9 +182,10 @@ function getRecommendedIndicesByGrades(siswa, mapelsList) {
  * @param {Object} mapel - Data paket mapel
  * @param {number} index - Indeks paket mapel dalam list
  * @param {number[]} recommendedByGrades - Hasil dari getRecommendedIndicesByGrades
+ * @param {Object} aiScores - Hasil prediksi dari TensorFlow.js {eksakta, nonEksakta}
  * @returns {Object} - { isRecommended: boolean, reasons: string[] }
  */
-function checkRecommendation(siswa, mapel, index, recommendedByGrades) {
+function checkRecommendation(siswa, mapel, index, recommendedByGrades, aiScores = null) {
     let reasons = [];
 
     // 1. Berdasarkan Psikotes
@@ -199,6 +200,21 @@ function checkRecommendation(siswa, mapel, index, recommendedByGrades) {
     // 2. Berdasarkan Nilai Akademik
     if (recommendedByGrades.includes(index)) {
         reasons.push("Nilai Akademik Tertinggi");
+    }
+
+    // 3. Berdasarkan Analisis AI (TensorFlow.js)
+    if (aiScores && mapel.kategori) {
+        const kategoriText = mapel.kategori.toLowerCase().trim();
+        
+        // Daftar sinonim kategori (Pencocokan lebih ketat agar 'Non Eksakta' tidak terbaca 'Eksakta')
+        const isNonEksaktaPkg = ['non eksakta', 'ips', 'soshum', 'sosial', 'bahasa', 'seni'].some(k => kategoriText.includes(k));
+        const isEksaktaPkg = !isNonEksaktaPkg && ['eksakta', 'mipa', 'ipa', 'sains', 'teknik'].some(k => kategoriText.includes(k));
+
+        if (isEksaktaPkg && aiScores.eksakta > 0.5) {
+            reasons.push("Analisis AI (Karir)");
+        } else if (isNonEksaktaPkg && aiScores.nonEksakta > 0.5) {
+            reasons.push("Analisis AI (Karir)");
+        }
     }
 
     return {
@@ -594,7 +610,7 @@ function renderGuestForm() {
                 <div class="absolute inset-y-0 left-0 pl-4 md:pl-5 flex items-center pointer-events-none">
                   <i class="fa-solid fa-hashtag text-slate-300 group-focus-within:text-blue-500 transition-colors"></i>
                 </div>
-                <input type="number" id="regNISN" placeholder="Masukkan NISN..." 
+                <input type="text" id="regNISN" placeholder="Masukkan NISN..." 
                   class="w-full box-border pl-10 pr-4 md:pl-12 md:pr-6 py-4 md:py-5 min-h-[64px] md:min-h-[72px] bg-slate-50 border-2 border-slate-100 rounded-2xl text-base md:text-lg font-bold outline-none focus:border-blue-500 focus:bg-white transition-all shadow-sm text-slate-700 placeholder-slate-400">
               </div>
               <div class="relative group">
@@ -714,7 +730,7 @@ function renderSiswaForm() {
         <p class="text-slate-400 font-semibold text-xs tracking-widest uppercase">Mengambil Data Kuota...</p>
       </div>`;
 
-    callAPI('getMapelOptions').then(rawMapels => {
+    callAPI('getMapelOptions').then(async rawMapels => {
         if (!rawMapels || rawMapels.length === 0) {
             container.innerHTML = `
               <div class="text-center py-16 fade-in">
@@ -739,8 +755,18 @@ function renderSiswaForm() {
 
         const recommendedByGrades = getRecommendedIndicesByGrades(sessionSiswa, mapels);
 
+        // --- Prediksi Rekomendasi AI (TensorFlow.js) ---
+        const karirText = (sessionSiswa.karir || []).join(', ');
+        const aiScores = await predictRecommendation(karirText, sessionSiswa.nilaiMapel || {});
+
+
         // ── Karir chips ──
         const karirList = (sessionSiswa.karir || []).filter(k => k && k !== '-');
+        const karirClass = typeof classifyCareer === 'function' ? classifyCareer(karirText) : 1;
+        const karirCategoryLabel = karirClass === 0 
+            ? '<span class="bg-green-50 text-green-600 border border-green-200 text-[9px] font-bold px-2 py-0.5 rounded-full ml-auto">EKSAKTA</span>'
+            : '<span class="bg-blue-50 text-blue-600 border border-blue-200 text-[9px] font-bold px-2 py-0.5 rounded-full ml-auto">NON-EKSAKTA</span>';
+
         const karirHtml = karirList.length > 0
             ? karirList.map(k => `<span class="inline-block bg-slate-100 text-slate-600 text-xs font-semibold px-2.5 py-1 rounded-full">${k}</span>`).join('')
             : '<span class="text-sm text-slate-400 italic">-</span>';
@@ -774,25 +800,49 @@ function renderSiswaForm() {
         // ── Color-coded paket cards ──
         const cardsHtml = mapels.map((m, index) => {
             const isFull = m.sisa <= 0;
-            const rec = checkRecommendation(sessionSiswa, m, index, recommendedByGrades);
+            const rec = checkRecommendation(sessionSiswa, m, index, recommendedByGrades, aiScores);
             const n = rec.reasons.length;
             const cardId = 'paket_card_' + index;
 
             let borderColor, bgColor, accentClass, badgeHtml;
+            
             if (isFull) {
-                borderColor = 'border-slate-200'; bgColor = 'bg-slate-50'; accentClass = 'bg-slate-300';
-                badgeHtml = '<span class="text-[10px] font-bold text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200">PENUH</span>';
-            } else if (n >= 2) {
-                borderColor = 'border-green-400'; bgColor = 'bg-green-50'; accentClass = 'bg-green-500';
-                badgeHtml = `<span class="text-[10px] font-bold text-green-700 bg-green-100 px-2.5 py-1 rounded-full border border-green-200">✓ Sangat Sesuai: ${rec.reasons.join(' & ')}</span>`;
+                // 5. ABU-ABU: Kuota Penuh
+                borderColor = 'border-slate-200'; 
+                bgColor = 'bg-slate-50'; 
+                accentClass = 'bg-slate-300';
+                badgeHtml = '<span class="text-[10px] font-bold text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200">KUOTA PENUH</span>';
+            } else if (n === 3) {
+                // 1. BIRU: Memenuhi 3 Kategori
+                borderColor = 'border-blue-400'; 
+                bgColor = 'bg-blue-50'; 
+                accentClass = 'bg-blue-500';
+                badgeHtml = `<span class="text-[10px] font-bold text-blue-700 bg-blue-100 px-2.5 py-1 rounded-full border border-blue-200"><i class="fa-solid fa-star mr-1"></i>SANGAT DIREKOMENDASIKAN (3/3)</span>`;
+            } else if (n === 2) {
+                // 2. HIJAU: Memenuhi 2 Kategori
+                borderColor = 'border-green-400'; 
+                bgColor = 'bg-green-50'; 
+                accentClass = 'bg-green-500';
+                badgeHtml = `<span class="text-[10px] font-bold text-green-700 bg-green-100 px-2.5 py-1 rounded-full border border-green-200"><i class="fa-solid fa-check-double mr-1"></i>DIREKOMENDASIKAN (2/3)</span>`;
             } else if (n === 1) {
-                borderColor = 'border-yellow-400'; bgColor = 'bg-yellow-50'; accentClass = 'bg-yellow-400';
-                badgeHtml = `<span class="text-[10px] font-bold text-yellow-700 bg-yellow-100 px-2.5 py-1 rounded-full border border-yellow-200">~ Sesuai: ${rec.reasons[0]}</span>`;
+                // 3. KUNING: Memenuhi 1 Kategori
+                borderColor = 'border-yellow-400'; 
+                bgColor = 'bg-yellow-50'; 
+                accentClass = 'bg-yellow-400';
+                badgeHtml = `<span class="text-[10px] font-bold text-yellow-700 bg-yellow-100 px-2.5 py-1 rounded-full border border-yellow-200"><i class="fa-solid fa-check mr-1"></i>CUKUP SESUAI (1/3)</span>`;
             } else {
-                borderColor = 'border-red-300'; bgColor = 'bg-red-50'; accentClass = 'bg-red-400';
-                badgeHtml = '<span class="text-[10px] font-bold text-red-600 bg-red-100 px-2.5 py-1 rounded-full border border-red-200">Kurang Sesuai</span>';
+                // 4. MERAH: Tidak ada kategori
+                borderColor = 'border-red-300'; 
+                bgColor = 'bg-red-50'; 
+                accentClass = 'bg-red-400';
+                badgeHtml = '<span class="text-[10px] font-bold text-red-600 bg-red-100 px-2.5 py-1 rounded-full border border-red-200">TIDAK SESUAI</span>';
             }
 
+            // Tambahkan daftar alasan kecil di bawah badge jika ada
+            const reasonListHtml = n > 0 ? `<div class="text-[9px] text-slate-400 mt-1 italic">${rec.reasons.join(', ')}</div>` : '';
+
+
+            // Tampilkan kembali seluruh deskripsi sesuai permintaan user
             const deskItems = m.deskripsi ? m.deskripsi.split(',').map(d => d.trim()).filter(Boolean) : [];
             const deskHtml = deskItems.length > 0
                 ? deskItems.map(d => `<span class="inline-block bg-white border border-slate-200 text-slate-600 rounded-lg px-2 py-0.5 text-[11px] font-medium">${d}</span>`).join(' ')
@@ -814,7 +864,10 @@ function renderSiswaForm() {
                         </div>
                         <p class="text-xs text-slate-400 mt-0.5">Sisa kuota: <b class="text-slate-600">${m.sisa}</b></p>
                       </div>
-                      <div class="shrink-0 mt-1 sm:mt-0">${badgeHtml}</div>
+                      <div class="shrink-0 mt-1 sm:mt-0 text-right">
+                        ${badgeHtml}
+                        ${reasonListHtml}
+                      </div>
                     </div>
                     ${deskHtml ? `<div class="flex flex-wrap gap-1.5 mt-3">${deskHtml}</div>` : ''}
                   </div>
@@ -859,7 +912,10 @@ function renderSiswaForm() {
 
               <!-- Minat Karir -->
               <div class="p-5 bg-white border border-slate-200 rounded-2xl shadow-sm">
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Minat Karir</p>
+                <div class="flex items-center mb-3">
+                  <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Minat Karir</p>
+                  ${karirCategoryLabel}
+                </div>
                 <div class="flex flex-wrap gap-1.5">${karirHtml}</div>
               </div>
 
@@ -2946,6 +3002,11 @@ function renderSiswaManager(users, page = 0, isSearch = false) {
                </td>
                <td class="py-3 px-4 text-center text-xs">
                    <p class="font-bold text-slate-600">${karirArray.length > 0 ? karirArray.join(', ') : '-'}</p>
+                   ${karirArray.length > 0 ? (
+                        (typeof classifyCareer === 'function' ? classifyCareer(karirArray.join(', ')) : 1) === 0
+                        ? '<span class="text-[9px] text-green-600 bg-green-50 border border-green-100 px-1.5 py-0.5 rounded-md font-bold uppercase mt-1 inline-block">Eksakta</span>'
+                        : '<span class="text-[9px] text-blue-600 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded-md font-bold uppercase mt-1 inline-block">Non-Eksakta</span>'
+                    ) : ''}
                </td>
                <td class="py-3 px-4 text-center">
                   <button onclick="openEditSiswa('${u.nisn}')" class="text-slate-300 hover:text-blue-600 transition-colors mr-2" title="Edit Data Siswa">
@@ -2990,7 +3051,7 @@ function renderSiswaManager(users, page = 0, isSearch = false) {
                       <div class="space-y-4">
                          <div>
                             <label class="block text-xs font-bold text-slate-400 uppercase mb-2">NISN</label>
-                            <input type="number" id="addNISN" placeholder="00123456" class="w-full p-2.5 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-blue-500 transition-all">
+                            <input type="text" id="addNISN" placeholder="00123456" class="w-full p-2.5 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-blue-500 transition-all">
                          </div>
                          <div>
                             <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Nama Lengkap</label>
@@ -3125,7 +3186,7 @@ function renderSiswaManager(users, page = 0, isSearch = false) {
                                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 flex justify-between">
                                   <span>NISN</span><span class="text-red-400">Tidak bisa diubah</span>
                                </label>
-                               <input type="number" id="editNISN" disabled class="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-500 outline-none select-none cursor-not-allowed">
+                               <input type="text" id="editNISN" disabled class="w-full p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-500 outline-none select-none cursor-not-allowed">
                            </div>
                            <div>
                                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Nama Lengkap</label>
