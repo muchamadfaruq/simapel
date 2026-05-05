@@ -53,6 +53,33 @@ const API_URL = "/api"; // Endpoint API (Relatif untuk server Node.js)
 
 let sessionSiswa = null;      // Menyimpan data sesi siswa yang login
 let allUsersData = [];       // Cache seluruh data user (untuk admin)
+
+/**
+ * Helper function to parse DD/MM/YYYY or YYYY-MM-DD into a Date object safely
+ */
+window.parseDateDDMMYYYY = function(str) {
+    if (!str) return new Date(NaN);
+    if (str.includes('/')) {
+        const parts = str.split('/');
+        if (parts.length === 3) return new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+    }
+    return new Date(str);
+};
+
+/**
+ * Event handler to automatically format text input to DD/MM/YYYY
+ */
+window.formatTglLahirInput = function(e) {
+    let v = e.target.value.replace(/\D/g, '');
+    if (v.length > 8) v = v.slice(0, 8);
+    if (v.length >= 5) {
+        e.target.value = `${v.slice(0,2)}/${v.slice(2,4)}/${v.slice(4)}`;
+    } else if (v.length >= 3) {
+        e.target.value = `${v.slice(0,2)}/${v.slice(2)}`;
+    } else {
+        e.target.value = v;
+    }
+};
 let rawActivities = [];      // Log aktivitas pemilihan
 let currentMonitorView = 'log'; // Tampilan monitor aktif ('log' atau 'unselected')
 let isSystemOpen = true;     // Status pendaftaran (Buka/Tutup)
@@ -617,7 +644,7 @@ function renderGuestForm() {
                 <div class="absolute inset-y-0 left-0 pl-4 md:pl-5 flex items-center pointer-events-none">
                   <i class="fa-solid fa-calendar-day text-slate-300 group-focus-within:text-blue-500 transition-colors"></i>
                 </div>
-                <input type="date" id="regTglLahir" title="Tanggal Lahir"
+                <input type="text" id="regTglLahir" title="Tanggal Lahir" placeholder="DD/MM/YYYY"
                   class="w-full box-border pl-10 pr-4 md:pl-12 md:pr-6 py-4 md:py-5 min-h-[64px] md:min-h-[72px] bg-slate-50 border-2 border-slate-100 rounded-2xl text-base md:text-lg font-bold outline-none focus:border-blue-500 focus:bg-white transition-all shadow-sm text-slate-700 cursor-pointer block leading-tight">
               </div>
               <button type="submit" id="btnVerify" class="btn-official w-full py-5 rounded-2xl font-bold text-lg flex items-center justify-center gap-3">
@@ -640,6 +667,11 @@ function renderGuestForm() {
             </div>
           </div>
         `;
+    setTimeout(() => {
+        if (typeof flatpickr !== 'undefined') {
+            flatpickr("#regTglLahir", { dateFormat: "d/m/Y", allowInput: true });
+        }
+    }, 100);
 }
 
 /**
@@ -648,8 +680,12 @@ function renderGuestForm() {
 function checkNISN(event) {
     if (event) event.preventDefault();
     const nisn = document.getElementById('regNISN').value;
-    const tgllahir = document.getElementById('regTglLahir').value;
-    if (!nisn || !tgllahir) return uiAlert("Silakan isi NISN dan Tanggal Lahir (YYYY-MM-DD)!", "error", "Login Gagal");
+    let tgllahir = document.getElementById('regTglLahir').value;
+    if (tgllahir && tgllahir.includes('-')) {
+        const parts = tgllahir.split('-');
+        if (parts.length === 3) tgllahir = `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    if (!nisn || !tgllahir) return uiAlert("Silakan isi NISN dan Tanggal Lahir (DD/MM/YYYY)!", "error", "Login Gagal");
     const btn = document.getElementById('btnVerify');
     btn.disabled = true;
     btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Verifikasi Data...`;
@@ -888,7 +924,7 @@ function renderSiswaForm() {
                   <h3 class="font-bold text-slate-800 text-base leading-snug truncate">${sessionSiswa.nama}</h3>
                   <div class="flex flex-wrap gap-3 mt-1">
                     <span class="text-[11px] text-slate-500 font-medium"><span class="text-slate-400">NISN:</span> <b>${sessionSiswa.nisn || '-'}</b></span>
-                    <span class="text-[11px] text-slate-500 font-medium"><span class="text-slate-400">Tgl Lahir:</span> <b>${sessionSiswa.tgllahir ? new Date(sessionSiswa.tgllahir).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) : '-'}</b></span>
+                    <span class="text-[11px] text-slate-500 font-medium"><span class="text-slate-400">Tgl Lahir:</span> <b>${sessionSiswa.tgllahir ? parseDateDDMMYYYY(sessionSiswa.tgllahir).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) : '-'}</b></span>
                   </div>
                 </div>
               </div>
@@ -3063,7 +3099,7 @@ function renderSiswaManager(users, page = 0, isSearch = false) {
                          </div>
                          <div>
                             <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Tanggal Lahir</label>
-                            <input type="date" id="addTglLahir" title="Tanggal Lahir" class="w-full p-2.5 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-blue-500 transition-all text-slate-600 bg-white">
+                            <input type="text" id="addTglLahir" title="Tanggal Lahir" placeholder="DD/MM/YYYY" class="w-full p-2.5 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-blue-500 transition-all text-slate-600 bg-white cursor-pointer">
                          </div>
                          <div>
                             <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Hasil Psikotes</label>
@@ -3198,7 +3234,7 @@ function renderSiswaManager(users, page = 0, isSearch = false) {
                            </div>
                            <div>
                                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Tanggal Lahir</label>
-                               <input type="date" id="editTglLahir" class="w-full p-3.5 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-blue-500 focus:bg-blue-50/10 transition-all shadow-sm text-slate-600 bg-white">
+                               <input type="text" id="editTglLahir" placeholder="DD/MM/YYYY" class="w-full p-3.5 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-blue-500 focus:bg-blue-50/10 transition-all shadow-sm text-slate-600 bg-white cursor-pointer">
                            </div>
                            <div>
                                <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Hasil Psikotes</label>
@@ -3233,6 +3269,12 @@ function renderSiswaManager(users, page = 0, isSearch = false) {
             }
         }, 10);
     }
+    setTimeout(() => {
+        if (typeof flatpickr !== 'undefined') {
+            flatpickr("#addTglLahir", { dateFormat: "d/m/Y", allowInput: true });
+            flatpickr("#editTglLahir", { dateFormat: "d/m/Y", allowInput: true });
+        }
+    }, 100);
 }
 
 /**
@@ -3242,7 +3284,11 @@ function submitSiswa() {
     const nisn = document.getElementById('addNISN').value;
     const nama = document.getElementById('addNamaSiswa').value;
     const kelas = document.getElementById('addKelas').value;
-    const tgllahir = document.getElementById('addTglLahir').value;
+    let tgllahir = document.getElementById('addTglLahir').value;
+    if (tgllahir && tgllahir.includes('-')) {
+        const parts = tgllahir.split('-');
+        if (parts.length === 3) tgllahir = `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
     const psikotes = document.getElementById('addPsikotes').value;
     const karirInput = document.getElementById('addKarir').value;
     const karirArray = karirInput ? karirInput.split(',').map(s => s.trim()) : [];
@@ -3273,7 +3319,12 @@ function openEditSiswa(nisn) {
     document.getElementById('editNISN').value = u.nisn;
     document.getElementById('editNamaSiswa').value = u.nama;
     document.getElementById('editKelas').value = u.kelas;
-    document.getElementById('editTglLahir').value = u.tgllahir || '';
+    let tglRaw = u.tgllahir || '';
+    if (tglRaw && tglRaw.includes('/')) {
+        const parts = tglRaw.split('/');
+        if (parts.length === 3) tglRaw = `${parts[2]}-${parts[1]}-${parts[0]}`;
+    }
+    document.getElementById('editTglLahir').value = tglRaw;
     document.getElementById('editPsikotes').value = u.psikotes || '';
     document.getElementById('editKarir').value = u.karir ? u.karir.filter(k => k && k !== '-').join(', ') : '';
 
@@ -3294,7 +3345,11 @@ function submitEditSiswa() {
     const nisn = document.getElementById('editNISN').value;
     const nama = document.getElementById('editNamaSiswa').value;
     const kelas = document.getElementById('editKelas').value;
-    const tgllahir = document.getElementById('editTglLahir').value;
+    let tgllahir = document.getElementById('editTglLahir').value;
+    if (tgllahir && tgllahir.includes('-')) {
+        const parts = tgllahir.split('-');
+        if (parts.length === 3) tgllahir = `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
     const psikotes = document.getElementById('editPsikotes').value;
     const karirInput = document.getElementById('editKarir').value;
     const karirArray = karirInput ? karirInput.split(',').map(s => s.trim()) : [];
@@ -3379,31 +3434,42 @@ function exportSiswaCSV() {
     });
     const sortedMapelKeys = [...allMapelKeys].sort();
 
-    const dataToExport = window.siswaCache.map(u => {
-        const row = {
-            nisn: u.nisn,
-            nama: u.nama,
-            kelas: u.kelas,
-            tgllahir: u.tgllahir || '-',
-            psikotes: u.psikotes || '-',
-            karir: u.karir ? u.karir.join(', ') : ''
-        };
-        // Add nilai columns
-        sortedMapelKeys.forEach(mapelKey => {
-            const colName = 'nilai_' + mapelKey.replace(/\s+/g, '_');
-            row[colName] = (u.nilaiMapel && u.nilaiMapel[mapelKey] !== undefined) ? u.nilaiMapel[mapelKey] : '';
+    const dataSiswaToExport = [];
+    const nilaiMapelToExport = [];
+
+    window.siswaCache.forEach(u => {
+        dataSiswaToExport.push({
+            NISN: u.nisn,
+            NAMA: u.nama,
+            KELAS: u.kelas,
+            TGLLAHIR: u.tgllahir || '-',
+            PSIKOTES: u.psikotes || '-',
+            KARIR: u.karir ? u.karir.join(', ') : ''
         });
-        return row;
+
+        const rowNilai = {
+            NISN: u.nisn,
+            NAMA: u.nama
+        };
+        sortedMapelKeys.forEach(mapelKey => {
+            rowNilai[mapelKey] = (u.nilaiMapel && u.nilaiMapel[mapelKey] !== undefined) ? u.nilaiMapel[mapelKey] : '';
+        });
+        nilaiMapelToExport.push(rowNilai);
     });
 
-    const ws = XLSX.utils.json_to_sheet(dataToExport);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Data Siswa");
+
+    const ws1 = XLSX.utils.json_to_sheet(dataSiswaToExport);
+    const ws2 = XLSX.utils.json_to_sheet(nilaiMapelToExport);
+
+    XLSX.utils.book_append_sheet(wb, ws1, "Data Siswa");
+    XLSX.utils.book_append_sheet(wb, ws2, "Nilai Mapel");
 
     // Adjust column widths
     const baseCols = [{ wch: 15 }, { wch: 30 }, { wch: 10 }, { wch: 15 }, { wch: 15 }, { wch: 30 }];
-    const nilaiCols = sortedMapelKeys.map(() => ({ wch: 20 }));
-    ws['!cols'] = [...baseCols, ...nilaiCols];
+    const nilaiCols = [{ wch: 15 }, { wch: 30 }, ...sortedMapelKeys.map(() => ({ wch: 20 }))];
+    ws1['!cols'] = baseCols;
+    ws2['!cols'] = nilaiCols;
 
     XLSX.writeFile(wb, `data_siswa_${new Date().getTime()}.xlsx`);
 }
@@ -3427,7 +3493,7 @@ function importSiswaCSV(event) {
             // â”€â”€ Sheet 1: Data Siswa â”€â”€
             const sheet1Name = workbook.SheetNames[0];
             const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheet1Name],
-                { defval: '', raw: false, dateNF: 'yyyy-mm-dd' });
+                { defval: '', raw: false, dateNF: 'dd/mm/yyyy' });
 
             if (rows.length === 0) {
                 alert('File kosong atau tidak ada data yang bisa dibaca!');
@@ -3471,7 +3537,7 @@ function importSiswaCSV(event) {
             let countSuccess = 0, countFail = 0;
 
             for (const row of rows) {
-                let nisn = '', nama = '', kelas = '', tgllahir = '', psikotes = '', karirRaw = '', nilaiPaket = '';
+                let nisn = '', nama = '', kelas = '', tgllahir = '', psikotes = '', karirRaw = '';
                 const nilaiMapel = {};
 
                 Object.keys(row).forEach(key => {
@@ -3483,9 +3549,8 @@ function importSiswaCSV(event) {
                     else if (k === 'tgllahir') tgllahir = val;
                     else if (k === 'psikotes') psikotes = val;
                     else if (k === 'karir') karirRaw = val;
-                    else if (k === 'nilai_paket') nilaiPaket = val;
                     // Format lama: kolom nilai_ di sheet 1
-                    else if (k.startsWith('nilai:')) {
+                    else if (k.startsWith('nilai_')) {
                         const mapelName = key.substring(6).trim();
                         const num = parseFloat(val);
                         if (mapelName && !isNaN(num)) nilaiMapel[mapelName] = num;
@@ -3501,7 +3566,6 @@ function importSiswaCSV(event) {
                     try {
                         const karirArray = karirRaw ? karirRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
                         const payload = { nisn, nama, kelas, tgllahir, psikotes, karir: karirArray };
-                        if (nilaiPaket) payload.nilaiPaket = nilaiPaket;
                         if (Object.keys(nilaiMapel).length > 0) payload.nilaiMapel = nilaiMapel;
                         const res = await callAPI('addSiswa', payload);
                         if (res && (res.success || String(res).includes('Sukses'))) countSuccess++;

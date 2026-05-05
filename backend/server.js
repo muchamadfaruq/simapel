@@ -362,8 +362,15 @@ app.get('/api/download-template', authenticateToken, async (req, res) => {
         let formattedTglLahir = "";
         if (siswa.tgllahir) {
             try {
-                const dateObj = new Date(siswa.tgllahir);
-                if (!isNaN(dateObj)) {
+                let dateObj;
+                if (siswa.tgllahir.includes('/')) {
+                    const parts = siswa.tgllahir.split('/');
+                    if (parts.length === 3) dateObj = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+                } else {
+                    dateObj = new Date(siswa.tgllahir);
+                }
+                
+                if (dateObj && !isNaN(dateObj)) {
                     formattedTglLahir = dateObj.toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' });
                 } else {
                     formattedTglLahir = siswa.tgllahir;
@@ -576,8 +583,14 @@ async function handleVerifyNISN(payload, res) {
     let queryParams = [nisn];
 
     if (tgllahir) {
-        queryStr += ' AND tgllahir = ?';
-        queryParams.push(tgllahir);
+        // If DB has YYYY-MM-DD but user input is DD/MM/YYYY, check both to allow login
+        let alternateTgl = tgllahir;
+        if (tgllahir.includes('/')) {
+            const parts = tgllahir.split('/');
+            if (parts.length === 3) alternateTgl = `${parts[2]}-${parts[1]}-${parts[0]}`;
+        }
+        queryStr += ' AND (tgllahir = ? OR tgllahir = ?)';
+        queryParams.push(tgllahir, alternateTgl);
     }
 
     const userResult = await db.query(queryStr, queryParams);
@@ -952,14 +965,12 @@ app.get('/api/download-siswa-template', authenticateToken, async (req, res) => {
             { header: 'KELAS', key: 'kelas', width: 10 },
             { header: 'TGLLAHIR', key: 'tgllahir', width: 14 },
             { header: 'PSIKOTES', key: 'psikotes', width: 14 },
-            { header: 'KARIR', key: 'karir', width: 30 },
-            { header: 'NILAI_PAKET', key: 'nilai_paket', width: 20 },
+            { header: 'KARIR', key: 'karir', width: 30 }
         ];
         ws1.getRow(1).eachCell(headerStyle);
         ws1.addRow({
             nisn: '1234567890', nama: 'NAMA LENGKAP SISWA', kelas: 'XA',
-            tgllahir: '2010-01-15', psikotes: 'Eksakta', karir: 'Dokter,Insinyur',
-            nilai_paket: mapels.length > 0 ? mapels[0].nama : 'PAKET 1'
+            tgllahir: '15/01/2010', psikotes: 'Eksakta', karir: 'Dokter,Insinyur'
         })
             .font = { italic: true, color: { argb: 'FF9CA3AF' } };
         ws1.views = [{ state: 'frozen', ySplit: 1 }];
