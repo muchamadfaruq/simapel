@@ -1,7 +1,7 @@
 services:
   # Aplikasi Backend Node.js
   app:
-    # build: .
+    build: .
     image: simapeldwisma:latest
     container_name: mapel-app
     restart: always
