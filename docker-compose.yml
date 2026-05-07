@@ -2,7 +2,7 @@ services:
   # Aplikasi Backend Node.js
   app:
     build: .
-    image: simapeldwisma:latest
+    image: muchamadfaruq/simapeldwisma:latest
     container_name: mapel-app
     restart: always
     ports:
