@@ -238,9 +238,9 @@ function checkRecommendation(siswa, mapel, index, recommendedByGrades, aiScores 
         const isEksaktaPkg = !isNonEksaktaPkg && ['eksakta', 'mipa', 'ipa', 'sains', 'teknik'].some(k => kategoriText.includes(k));
 
         if (isEksaktaPkg && aiScores.eksakta > 0.5) {
-            reasons.push("Analisis AI (Karir)");
+            reasons.push("Deep Learning AI (Karir)");
         } else if (isNonEksaktaPkg && aiScores.nonEksakta > 0.5) {
-            reasons.push("Analisis AI (Karir)");
+            reasons.push("Deep Learning AI (Karir)");
         }
     }
 
@@ -372,7 +372,7 @@ function startApp() {
 function updateAppIdentity(settings) {
     // Update page title
     if (settings.schoolName) {
-        document.title = `Aplikasi Pemilihan Mapel - ${settings.schoolName}`;
+        document.title = `SIMAPEL - ${settings.schoolName}`;
     }
 
     // Update subtitle: "SMA Negeri 2 Mengwi • Tahun Ajaran 2026-2027"
