@@ -5,6 +5,10 @@ npm-debug.log
 .git
 .gitignore
 README.md
+MAINTENANCE.md
 backend/data/
 backend/uploads/
+*.tar
+simapeldwisma.tar
 /brain
+.DS_Store
