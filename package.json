@@ -1,0 +1,11 @@
+{
+  "name": "simapeldwisma-root",
+  "version": "1.0.0",
+  "description": "Root configuration for SIMAPEL DWISMA",
+  "scripts": {
+    "dev": "cd backend && node server.js",
+    "start": "cd backend && node server.js",
+    "deploy": "./deploy.sh",
+    "install-backend": "cd backend && npm install"
+  }
+}
