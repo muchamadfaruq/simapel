@@ -3,10 +3,9 @@ services:
   app:
     build: .
     image: muchamadfaruq/simapeldwisma:latest
-    container_name: mapel-app
+    container_name: mapel-app-2
     restart: always
-    ports:
-      - "3000:3000"
+    # Port publik dihapus agar aman
     environment:
       NODE_ENV: production
       PORT: 3000
@@ -15,3 +14,9 @@ services:
       - ./backend/uploads:/app/backend/uploads
       - ./backend/data:/app/backend/data
       - ./img:/app/img
+    networks:
+      - nginx-proxy-manager_default
+
+networks:
+  nginx-proxy-manager_default:
+    external: true
