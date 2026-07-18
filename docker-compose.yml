@@ -3,7 +3,7 @@ services:
   app:
     build: .
     image: muchamadfaruq/simapeldwisma:latest
-    container_name: mapel-app
+    container_name: mapel-app-2
     restart: always
     ports:
       - "3111:3000"
