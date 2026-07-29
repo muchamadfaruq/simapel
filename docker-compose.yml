@@ -1,5 +1,4 @@
 services:
-  # Aplikasi Backend Node.js
   app:
     build: .
     image: muchamadfaruq/simapeldwisma:latest
@@ -16,11 +15,11 @@ services:
       - ./backend/data:/app/backend/data
       - ./img:/app/img
     networks:
-      - default
+      - app-net
       - nginx-proxy-manager_default
 
 networks:
-  default:
+  app-net:
     name: mapeldwisma_default
   nginx-proxy-manager_default:
     external: true
