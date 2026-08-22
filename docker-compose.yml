@@ -5,7 +5,7 @@ services:
     container_name: mapel-app-2
     restart: always
     ports:
-      - "3112:3000"
+      - "127.0.0.1:3112:3000"
     environment:
       NODE_ENV: production
       PORT: 3000
