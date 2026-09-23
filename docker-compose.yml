@@ -5,7 +5,7 @@ services:
     container_name: mapel-app-2
     restart: always
     ports:
-      - "127.0.0.1:3112:3000"
+      - "0.0.0.0:3112:3000"
     environment:
       NODE_ENV: production
       PORT: 3000
@@ -16,10 +16,10 @@ services:
       - ./img:/app/img
     networks:
       - app-net
-      - nginx-proxy-manager_default
+#      - nginx-proxy-manager_default
 
 networks:
   app-net:
     name: mapeldwisma_default
-  nginx-proxy-manager_default:
+#  nginx-proxy-manager_default:
     external: true
